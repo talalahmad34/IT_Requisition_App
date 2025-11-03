@@ -1,0 +1,1831 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PES Requisition System</title>
+    <!-- Tailwind CSS CDN for styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        // Tailwind CSS configuration to extend theme with custom colors and fonts
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primaryAccent: '#007AFF', // Modern iOS-like blue
+                        darkBlue: '#0056b3', // A darker shade of blue for gradients
+                    },
+                    fontFamily: {
+                        inter: ['Inter', 'sans-serif'], // Using Inter font for a modern look
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Inter font from Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <!-- html2pdf.js CDN for PDF report generation -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <style>
+        /* Base body styling for font and plain white background */
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #FFFFFF; /* Plain white background */
+            color: #333; /* Dark grey text for readability */
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh; /* Ensure body takes full viewport height */
+        }
+
+        /* Header fixed at the top */
+        header {
+            position: sticky;
+            top: 0;
+            z-index: 50; /* Ensure header stays on top */
+        }
+
+        /* Main content area to take remaining space */
+        main {
+            flex-grow: 1;
+            display: flex; /* Use flex to center content within main */
+            flex-direction: column;
+            justify-content: center; /* Center vertically */
+            align-items: center; /* Center horizontally */
+        }
+
+        /* General styling for all tab buttons */
+        .tab-button {
+            padding: 0.5rem 1rem; /* px-4 py-2 */
+            border-radius: 0.375rem; /* rounded-md */
+            transition: all 0.2s ease-in-out; /* transition-colors duration-200 */
+            font-weight: 600; /* semibold for better visibility */
+            white-space: nowrap; /* Prevent text wrapping */
+        }
+
+        /* Styling for active tab buttons (handled by JS adding bg-primaryAccent and text-white) */
+        .tab-button.active {
+            background-color: var(--tw-colors-primaryAccent) !important; /* Force blue background */
+            color: white !important; /* Force white text */
+            border: none !important; /* No border when active */
+        }
+
+        /* Styling for inactive tab buttons (default state for portal tabs) */
+        .tab-button:not(.active) {
+            background-color: transparent; /* Transparent background for portal tabs */
+            color: white; /* White text for portal tabs */
+            border: none;
+        }
+        /* Hover effect for inactive portal tab buttons */
+        .tab-button:not(.active):hover {
+            background-color: rgba(255, 255, 255, 0.2); /* Subtle white overlay on hover */
+            color: white;
+        }
+
+        /* Styling for the large landing page buttons */
+        .landing-button {
+            background-color: var(--tw-colors-primaryAccent); /* Default blue background */
+            color: white;
+            padding: 2rem 3rem;
+            border-radius: 1rem; /* More rounded corners */
+            font-size: 1.75rem; /* Larger font size */
+            font-weight: 700; /* Bold font */
+            text-align: center;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1); /* Initial subtle shadow */
+            transition: all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1); /* Smooth transition for all properties */
+            background-image: linear-gradient(135deg, var(--tw-colors-primaryAccent) 0%, var(--tw-colors-primaryAccent) 100%); /* Initial gradient */
+            background-size: 200% 200%; /* Larger background size for animation */
+            cursor: pointer;
+            position: relative; /* Needed for pseudo-elements or complex animations */
+            overflow: hidden; /* Hide overflow for gradient shift */
+        }
+
+        .landing-button:hover {
+            transform: translateY(-5px) scale(1.03); /* Lift and slight scale */
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.25); /* More prominent shadow */
+            background-position: 100% 0%; /* Shift gradient on hover */
+            background-image: linear-gradient(135deg, var(--tw-colors-darkBlue) 0%, var(--tw-colors-primaryAccent) 100%); /* Gradient shift */
+        }
+
+        /* Status badge styling based on requisition status */
+        .status-pending-it { background-color: #FFEDD5; color: #D97706; } /* Light orange for pending IT verification */
+        .status-verified-it { background-color: #DBEAFE; color: #2563EB; } /* Light blue for verified by IT */
+        .status-approved-manager { background-color: #D1FAE5; color: #059669; } /* Light green for approved by manager */
+        .status-completed { background-color: #DCFCE7; color: #065F46; } /* Darker green for completed */
+        .status-booked { background-color: #DCFCE7; color: #065F46; } /* Darker green for booked (same as completed) */
+        .status-declined { background-color: #FEE2E2; color: #DC2626; } /* Light red for declined */
+        .status-leave-pending-manager { background-color: #FEF3C7; color: #F59E0B; } /* Light yellow for pending manager leave */
+        .status-leave-approved-manager { background-color: #D1FAE5; color: #059669; } /* Light green for approved by manager leave */
+        .status-leave-declined-manager { background-color: #FEE2E2; color: #DC2626; } /* Light red for declined by manager leave */
+
+        /* Common styling for status text pills */
+        .status-text {
+            padding: 0.25rem 0.75rem; /* Padding for pill shape */
+            border-radius: 9999px; /* Fully rounded corners for pill effect */
+            font-size: 0.875rem; /* Small font size */
+            font-weight: 600; /* Semibold font weight */
+            display: inline-block; /* Allows padding and margin */
+        }
+        /* Custom modal styles for confirmation dialogs */
+        .modal {
+            display: none; /* Hidden by default */
+            position: fixed; /* Stay in place relative to viewport */
+            z-index: 1000; /* High z-index to appear on top of other content */
+            left: 0;
+            top: 0;
+            width: 100%; /* Full width */
+            height: 100%; /* Full height */
+            overflow: auto; /* Enable scroll if content overflows */
+            background-color: rgba(0,0,0,0.4); /* Semi-transparent black overlay */
+            justify-content: center; /* Center content horizontally */
+            align-items: center; /* Center content vertically */
+            backdrop-filter: blur(5px); /* Blur effect for modal background */
+            -webkit-backdrop-filter: blur(5px); /* Safari support */
+            animation: fadeIn 0.3s ease-out; /* Fade in animation for modal overlay */
+        }
+        .modal-content {
+            background-color: #fefefe; /* White background for modal content */
+            margin: auto; /* Auto margins for centering */
+            padding: 20px;
+            border-radius: 0.5rem; /* Rounded corners */
+            box-shadow: 0 8px 16px -4px rgba(0, 0, 0, 0.2); /* More pronounced shadow */
+            width: 90%; /* Responsive width */
+            max-width: 500px; /* Maximum width for larger screens */
+            position: relative; /* Needed for close button positioning */
+            animation: slideIn 0.3s ease-out; /* Slide in animation for modal content */
+        }
+        .close-button {
+            position: absolute;
+            top: 10px;
+            right: 15px;
+            color: #aaa; /* Light grey color */
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        .close-button:hover,
+        .close-button:focus {
+            color: black; /* Darker on hover/focus */
+            text-decoration: none;
+            cursor: pointer;
+        }
+
+        /* Keyframe animations */
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        @keyframes slideIn {
+            from { transform: translateY(-20px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
+        /* Submit button hover animation */
+        .submit-button-animated {
+            transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+        }
+        .submit-button-animated:hover {
+            transform: translateY(-2px) scale(1.02); /* Slight lift and scale */
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2); /* More pronounced shadow */
+        }
+
+        /* Styling for the notification dot */
+        .notification-dot {
+            display: inline-block;
+            width: 8px; /* Smaller width for a dot */
+            height: 8px; /* Smaller height for a dot */
+            border-radius: 50%; /* Make it a perfect circle */
+            background-color: #ef4444; /* Red color, matching bg-red-500 */
+            margin-left: 0.5rem; /* Space from text */
+            vertical-align: middle; /* Align with text */
+        }
+    </style>
+</head>
+<body class="bg-white text-gray-800">
+
+    <!-- Header Section -->
+    <header class="bg-primaryAccent text-white p-4 shadow-md w-full">
+        <div class="container mx-auto flex flex-col sm:flex-row justify-between items-center relative">
+            <!-- Home button (left on desktop, top-left on mobile) -->
+            <div class="order-1 sm:order-none mb-2 sm:mb-0">
+                <button id="homeButton" class="tab-button px-4 py-2 rounded-md transition-colors duration-200">Home</button>
+            </div>
+            <!-- System Title (centered on all screens) -->
+            <div class="order-2 sm:order-none flex-grow text-center mb-2 sm:mb-0">
+                <h1 class="text-2xl font-bold">PES Requisition System</h1>
+            </div>
+            <!-- Portal Navigation buttons (right on desktop, bottom-right on mobile) -->
+            <nav class="order-3 sm:order-none flex space-x-2 sm:space-x-4">
+                <button id="itPortalTabBtn" class="tab-button px-4 py-2 rounded-md transition-colors duration-200">IT Portal <span id="itNotificationCount" class="notification-dot hidden"></span></button>
+                <button id="managerPortalTabBtn" class="tab-button px-4 py-2 rounded-md transition-colors duration-200">Manager Portal <span id="managerNotificationCount" class="notification-dot hidden"></span></button>
+            </nav>
+        </div>
+    </header>
+
+    <!-- Main Content Area -->
+    <main class="container mx-auto p-4 flex-grow flex flex-col justify-center items-center">
+
+        <!-- Landing Page Section -->
+        <section id="landingPage" class="tab-content w-full h-full flex flex-col justify-center items-center p-4 space-y-8">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-8 w-full max-w-5xl">
+                <button id="landingItRequisitionBtn" class="landing-button">
+                    IT Requisition
+                </button>
+                <button id="landingConferenceRoomBtn" class="landing-button">
+                    Conference Room
+                </button>
+                <button id="landingLeaveRequestBtn" class="landing-button">
+                    Leave Request
+                </button>
+            </div>
+        </section>
+
+        <!-- In-App Notification Area -->
+        <div id="notificationArea" class="hidden px-4 py-3 rounded relative mb-4" role="alert">
+            <span id="notificationPrefix" class="font-bold mr-1"></span><span class="block sm:inline" id="notificationMessage"></span>
+            <!-- Removed Close button for the notification -->
+        </div>
+
+        <!-- User Submission Portal Section (now for IT Requisition) -->
+        <section id="userPortal" class="tab-content bg-white p-6 rounded-lg shadow-md hidden w-full max-w-2xl">
+            <h2 class="text-2xl font-semibold text-primaryAccent mb-4">Submit a New IT Requisition</h2>
+            <form id="requisitionForm" class="space-y-4">
+                <div>
+                    <label for="userName" class="block text-sm font-medium text-gray-700">Your Name</label>
+                    <input type="text" id="userName" name="userName" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-primaryAccent focus:border-primaryAccent" required>
+                </div>
+                <div>
+                    <label for="userDesignation" class="block text-sm font-medium text-gray-700">Designation</label>
+                    <input type="text" id="userDesignation" name="userDesignation" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-primaryAccent focus:border-primaryAccent" required>
+                </div>
+                <div>
+                    <label for="userPhone" class="block text-sm font-medium text-gray-700">Phone Extension</label>
+                    <input type="tel" id="userPhone" name="userPhone" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-primaryAccent focus:border-primaryAccent" required>
+                </div>
+                <div>
+                    <label for="issueType" class="block text-sm font-medium text-gray-700">Issue Type</label>
+                    <select id="issueType" name="issueType" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-primaryAccent focus:border-primaryAccent" required>
+                        <option value="">Select an issue type</option>
+                        <option value="Hardware">Hardware Issue</option>
+                        <option value="Software">Software Issue</option>
+                        <option value="Network">Network Issue</option>
+                        <option value="Account">Account/Access Issue</option>
+                        <option value="Other">Other</option>
+                    </select>
+                </div>
+                <div>
+                    <label for="problemDescription" class="block text-sm font-medium text-gray-700">Problem Description</label>
+                    <textarea id="problemDescription" name="problemDescription" rows="4" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-primaryAccent focus:border-primaryAccent" required></textarea>
+                </div>
+                <button type="submit" class="w-full bg-primaryAccent text-white py-2 px-4 rounded-md hover:bg-blue-600 transition-colors duration-200 shadow-md submit-button-animated">Submit Requisition</button>
+            </form>
+        </section>
+
+        <!-- Conference Room Requisition Portal Section -->
+        <section id="conferenceRoomPortal" class="tab-content bg-white p-6 rounded-lg shadow-md hidden w-full max-w-2xl">
+            <h2 class="text-2xl font-semibold text-primaryAccent mb-4">Submit a New Conference Room Requisition</h2>
+            <form id="conferenceRoomRequisitionForm" class="space-y-4">
+                <div>
+                    <label for="cr_userName" class="block text-sm font-medium text-gray-700">Your Name</label>
+                    <input type="text" id="cr_userName" name="userName" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-primaryAccent focus:border-primaryAccent" required>
+                </div>
+                <div>
+                    <label for="cr_userDesignation" class="block text-sm font-medium text-gray-700">Designation</label>
+                    <input type="text" id="cr_userDesignation" name="userDesignation" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-primaryAccent focus:border-primaryAccent" required>
+                </div>
+                <div>
+                    <label for="cr_meetingDate" class="block text-sm font-medium text-gray-700">Date of Meeting</label>
+                    <input type="date" id="cr_meetingDate" name="meetingDate" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-primaryAccent focus:border-primaryAccent" required>
+                </div>
+                <div>
+                    <label for="cr_meetingTime" class="block text-sm font-medium text-gray-700">Time of Meeting</label>
+                    <input type="time" id="cr_meetingTime" name="meetingTime" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-primaryAccent focus:border-primaryAccent" required>
+                </div>
+                <div>
+                    <label for="cr_meetingDescription" class="block text-sm font-medium text-gray-700">Meeting Description</label>
+                    <textarea id="cr_meetingDescription" name="meetingDescription" rows="4" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-primaryAccent focus:border-primaryAccent" required></textarea>
+                </div>
+                <div>
+                    <label for="cr_numParticipants" class="block text-sm font-medium text-gray-700">Number of Participants</label>
+                    <input type="number" id="cr_numParticipants" name="numParticipants" min="1" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-primaryAccent focus:border-primaryAccent" required>
+                </div>
+                <button type="submit" class="w-full bg-primaryAccent text-white py-2 px-4 rounded-md hover:bg-blue-600 transition-colors duration-200 shadow-md submit-button-animated">Submit Conference Room Requisition</button>
+            </form>
+        </section>
+
+        <!-- Leave Request Submission Portal Section -->
+        <section id="leaveRequestPortal" class="tab-content bg-white p-6 rounded-lg shadow-md hidden w-full max-w-2xl">
+            <h2 class="text-2xl font-semibold text-primaryAccent mb-4">Submit a New Leave Request</h2>
+            <form id="leaveRequestForm" class="space-y-4">
+                <div>
+                    <label for="leave_userName" class="block text-sm font-medium text-gray-700">Your Name</label>
+                    <input type="text" id="leave_userName" name="userName" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-primaryAccent focus:border-primaryAccent" required>
+                </div>
+                <div>
+                    <label for="leave_userDesignation" class="block text-sm font-medium text-gray-700">Designation</label>
+                    <input type="text" id="leave_userDesignation" name="userDesignation" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-primaryAccent focus:border-primaryAccent" required>
+                </div>
+                <div>
+                    <label for="leaveType" class="block text-sm font-medium text-gray-700">Leave Type</label>
+                    <select id="leaveType" name="leaveType" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-primaryAccent focus:border-primaryAccent" required>
+                        <option value="">Select Leave Type</option>
+                        <option value="Annual">Annual Leave</option>
+                        <option value="Sick">Sick Leave</option>
+                        <option value="Casual">Casual Leave</option>
+                        <option value="Maternity">Maternity Leave</option>
+                        <option value="Paternity">Paternity Leave</option>
+                        <option value="Unpaid">Unpaid Leave</option>
+                    </select>
+                </div>
+                <div>
+                    <label for="startDate" class="block text-sm font-medium text-gray-700">Start Date</label>
+                    <input type="date" id="startDate" name="startDate" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-primaryAccent focus:border-primaryAccent" required>
+                </div>
+                <div>
+                    <label for="endDate" class="block text-sm font-medium text-gray-700">End Date</label>
+                    <input type="date" id="endDate" name="endDate" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-primaryAccent focus:border-primaryAccent" required>
+                </div>
+                <div>
+                    <label for="reason" class="block text-sm font-medium text-gray-700">Reason for Leave</label>
+                    <textarea id="reason" name="reason" rows="4" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-primaryAccent focus:border-primaryAccent" required></textarea>
+                </div>
+                <button type="submit" class="w-full bg-primaryAccent text-white py-2 px-4 rounded-md hover:bg-blue-600 transition-colors duration-200 shadow-md submit-button-animated">Submit Leave Request</button>
+            </form>
+        </section>
+
+
+        <!-- IT Verification Portal Section -->
+        <section id="itPortal" class="tab-content bg-white p-6 rounded-lg shadow-md hidden w-full max-w-4xl">
+            <h2 class="text-2xl font-semibold text-primaryAccent mb-4">IT Verification Portal</h2>
+            <h3 class="text-xl font-semibold text-gray-700 mb-3">Pending & In-Progress Requests</h3>
+            <div id="itRequestsList" class="space-y-4">
+                <p class="text-gray-500" id="noItRequests">No pending or in-progress requests for IT.</p>
+            </div>
+
+            <h3 class="text-xl font-semibold text-gray-700 mt-8 mb-3">Recent History</h3>
+            <div class="flex flex-col sm:flex-row gap-4 mb-4">
+                <div class="flex-grow">
+                    <label for="itHistorySearch" class="sr-only">Search History</label>
+                    <input type="text" id="itHistorySearch" placeholder="Search by name..." class="w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-primaryAccent focus:border-primaryAccent">
+                </div>
+                <div>
+                    <label for="itHistoryFilter" class="sr-only">Filter History</label>
+                    <select id="itHistoryFilter" class="w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-primaryAccent focus:border-primaryAccent">
+                        <option value="All">All Requisition Types</option>
+                        <option value="IT">IT Requisitions</option>
+                        <option value="Conference Room">Conference Room Requisitions</option>
+                        <!-- Removed Leave Requests option from IT Portal filter -->
+                    </select>
+                </div>
+            </div>
+            <div id="itHistoryList" class="space-y-4">
+                <p class="text-gray-500" id="noItHistory">No completed or declined requests in history.</p>
+            </div>
+            <button id="showFullItHistoryBtn" class="mt-4 w-full bg-gray-200 text-gray-800 py-2 px-4 rounded-md hover:bg-gray-300 transition-colors hidden">Show Full History</button>
+        </section>
+
+        <!-- Manager Approval Portal Section -->
+        <section id="managerPortal" class="tab-content bg-white p-6 rounded-lg shadow-md hidden w-full max-w-6xl">
+            <h2 class="text-2xl font-semibold text-primaryAccent mb-4">Manager Approval Portal</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- Left Column: Leave Applications -->
+                <div>
+                    <h3 class="text-xl font-semibold text-gray-700 mb-3">Pending Leave Requests</h3>
+                    <div id="managerLeaveRequestsList" class="space-y-4">
+                        <p class="text-gray-500" id="noManagerLeaveRequests">No pending leave requests for approval.</p>
+                    </div>
+
+                    <h3 class="text-xl font-semibold text-gray-700 mt-8 mb-3">Recent Leave History</h3>
+                    <div class="flex flex-col sm:flex-row gap-4 mb-4">
+                        <div class="flex-grow">
+                            <label for="managerLeaveHistorySearch" class="sr-only">Search Leave History</label>
+                            <input type="text" id="managerLeaveHistorySearch" placeholder="Search leave by name..." class="w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-primaryAccent focus:border-primaryAccent">
+                        </div>
+                        <div>
+                            <label for="managerLeaveHistoryFilter" class="sr-only">Filter Leave History</label>
+                            <select id="managerLeaveHistoryFilter" class="w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-primaryAccent focus:border-primaryAccent">
+                                <option value="All">All Leave Types</option>
+                                <option value="Annual">Annual Leave</option>
+                                <option value="Sick">Sick Leave</option>
+                                <option value="Casual">Casual Leave</option>
+                                <option value="Maternity">Maternity Leave</option>
+                                <option value="Paternity">Paternity Leave</option>
+                                <option value="Unpaid">Unpaid Leave</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div id="managerLeaveHistoryList" class="space-y-4">
+                        <p class="text-gray-500" id="noManagerLeaveHistory">No closed leave requests in history.</p>
+                    </div>
+                    <button id="showFullManagerLeaveHistoryBtn" class="mt-4 w-full bg-gray-200 text-gray-800 py-2 px-4 rounded-md hover:bg-gray-300 transition-colors hidden">Show Full Leave History</button>
+                </div>
+
+                <!-- Right Column: IT & Conference Room Requisitions -->
+                <div>
+                    <h3 class="text-xl font-semibold text-gray-700 mb-3">Pending IT & CR Requests</h3>
+                    <div id="managerITCRRequestsList" class="space-y-4">
+                        <p class="text-gray-500" id="noManagerITCRRequests">No pending IT or Conference Room requests for approval.</p>
+                    </div>
+
+                    <h3 class="text-xl font-semibold text-gray-700 mt-8 mb-3">Recent IT & CR History</h3>
+                    <div class="flex flex-col sm:flex-row gap-4 mb-4">
+                        <div class="flex-grow">
+                            <label for="managerITCRHistorySearch" class="sr-only">Search IT/CR History</label>
+                            <input type="text" id="managerITCRHistorySearch" placeholder="Search IT/CR by name..." class="w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-primaryAccent focus:border-primaryAccent">
+                        </div>
+                        <div>
+                            <label for="managerITCRHistoryFilter" class="sr-only">Filter IT/CR History</label>
+                            <select id="managerITCRHistoryFilter" class="w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-primaryAccent focus:border-primaryAccent">
+                                <option value="All">All IT/CR Types</option>
+                                <option value="IT">IT Requisitions</option>
+                                <option value="Conference Room">Conference Room Requisitions</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div id="managerITCRHistoryList" class="space-y-4">
+                        <p class="text-gray-500" id="noManagerITCRHistory">No closed IT or Conference Room requests in history.</p>
+                    </div>
+                    <button id="showFullManagerITCRHistoryBtn" class="mt-4 w-full bg-gray-200 text-gray-800 py-2 px-4 rounded-md hover:bg-gray-300 transition-colors hidden">Show Full IT & CR History</button>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Confirmation Modal Structure -->
+    <div id="confirmationModal" class="modal">
+        <div class="modal-content">
+            <span class="close-button" onclick="closeModal('confirmationModal')">&times;</span>
+            <h3 class="text-xl font-bold mb-4" id="modalTitle">Confirm Action</h3>
+            <p id="modalMessage" class="mb-6"></p>
+            <div class="flex justify-end space-x-4">
+                <button id="modalCancelBtn" class="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 transition-colors">Cancel</button>
+                <button id="modalConfirmBtn" class="px-4 py-2 bg-primaryAccent text-white rounded-md hover:bg-blue-600 transition-colors">Confirm</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Password Modal -->
+    <div id="passwordModal" class="modal">
+        <div class="modal-content">
+            <span class="close-button" onclick="closeModal('passwordModal')">&times;</span>
+            <h3 class="text-xl font-bold mb-4" id="passwordModalTitle">Enter Password</h3>
+            <p class="mb-4">Please enter the password to access this portal.</p>
+            <input type="password" id="passwordInput" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-primaryAccent focus:border-primaryAccent" placeholder="Password">
+            <p id="passwordError" class="text-red-500 text-sm mb-4 hidden">Incorrect password. Please try again.</p>
+            <div class="flex justify-end space-x-4">
+                <button id="passwordSubmitBtn" class="px-4 py-2 bg-primaryAccent text-white rounded-md hover:bg-blue-600 transition-colors">Submit</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Full History Modal -->
+    <div id="fullHistoryModal" class="modal">
+        <div class="modal-content max-w-2xl">
+            <span class="close-button" onclick="closeModal('fullHistoryModal')">&times;</span>
+            <h3 class="text-xl font-bold mb-4" id="fullHistoryModalTitle">Full Requisition History</h3>
+            <div class="mb-4">
+                <input type="text" id="fullHistorySearchInput" placeholder="Search by name..." class="w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-primaryAccent focus:border-primaryAccent">
+            </div>
+            <div id="fullHistoryListContent" class="space-y-4 max-h-96 overflow-y-auto">
+                <!-- Full history items will be rendered here -->
+            </div>
+            <p id="noFullHistoryResults" class="text-gray-500 hidden mt-4">No matching history found.</p>
+        </div>
+    </div>
+
+    <script>
+        console.log("Script execution started.");
+
+        // --- Global Variables and Constants ---
+        const API_BASE_URL = 'http://192.168.0.3:5000/api/requisitions';
+        const IT_PASSWORD = '123';
+        const MANAGER_PASSWORD = '321';
+        const IT_AUTH_KEY = 'itAuth';
+        const MANAGER_AUTH_KEY = 'managerAuth';
+
+        // --- DOM Element References ---
+        const landingPage = document.getElementById('landingPage');
+        const landingItRequisitionBtn = document.getElementById('landingItRequisitionBtn');
+        const landingConferenceRoomBtn = document.getElementById('landingConferenceRoomBtn');
+        const landingLeaveRequestBtn = document.getElementById('landingLeaveRequestBtn'); // NEW
+
+        const homeButton = document.getElementById('homeButton'); // NEW: Home button reference
+        const itPortalTabBtn = document.getElementById('itPortalTabBtn');
+        const managerPortalTabBtn = document.getElementById('managerPortalTabBtn');
+
+        const userPortal = document.getElementById('userPortal');
+        const conferenceRoomPortal = document.getElementById('conferenceRoomPortal');
+        const leaveRequestPortal = document.getElementById('leaveRequestPortal'); // NEW
+
+        const requisitionForm = document.getElementById('requisitionForm');
+        const conferenceRoomRequisitionForm = document.getElementById('conferenceRoomRequisitionForm');
+        const leaveRequestForm = document.getElementById('leaveRequestForm'); // NEW
+
+        const itRequestsList = document.getElementById('itRequestsList');
+        const noItRequests = document.getElementById('noItRequests');
+        const itHistoryList = document.getElementById('itHistoryList');
+        const noItHistory = document.getElementById('noItHistory'); 
+        // Manager Portal elements (reorganized)
+        const managerLeaveRequestsList = document.getElementById('managerLeaveRequestsList'); // NEW
+        const noManagerLeaveRequests = document.getElementById('noManagerLeaveRequests'); // NEW
+        const managerLeaveHistoryList = document.getElementById('managerLeaveHistoryList'); // NEW
+        const noManagerLeaveHistory = document.getElementById('noManagerLeaveHistory'); // NEW
+        const managerLeaveHistorySearch = document.getElementById('managerLeaveHistorySearch'); // NEW
+        const managerLeaveHistoryFilter = document.getElementById('managerLeaveHistoryFilter'); // NEW
+        const showFullManagerLeaveHistoryBtn = document.getElementById('showFullManagerLeaveHistoryBtn'); // NEW
+
+        const managerITCRRequestsList = document.getElementById('managerITCRRequestsList'); // Renamed from managerRequestsList
+        const noManagerITCRRequests = document.getElementById('noManagerITCRRequests'); // Renamed from noManagerRequests
+        const managerITCRHistoryList = document.getElementById('managerITCRHistoryList'); // Renamed from managerHistoryList
+        const noManagerITCRHistory = document.getElementById('noManagerITCRHistory'); // Renamed from noManagerHistory
+        const managerITCRHistorySearch = document.getElementById('managerITCRHistorySearch'); // Renamed from managerHistorySearch
+        const managerITCRHistoryFilter = document.getElementById('managerITCRHistoryFilter'); // Renamed from managerHistoryFilter
+        const showFullManagerITCRHistoryBtn = document.getElementById('showFullManagerITCRHistoryBtn'); // Renamed from showFullManagerHistoryBtn
+
+
+        const notificationArea = document.getElementById('notificationArea');
+        const notificationPrefix = document.getElementById('notificationPrefix');
+        const notificationMessage = document.getElementById('notificationMessage');
+
+        const confirmationModal = document.getElementById('confirmationModal');
+        const modalTitle = document.getElementById('modalTitle');
+        const modalMessage = document.getElementById('modalMessage');
+        const modalCancelBtn = document.getElementById('modalCancelBtn');
+        const modalConfirmBtn = document.getElementById('modalConfirmBtn');
+
+        const passwordModal = document.getElementById('passwordModal');
+        const passwordModalTitle = document.getElementById('passwordModalTitle');
+        const passwordInput = document.getElementById('passwordInput');
+        const passwordError = document.getElementById('passwordError');
+        const passwordSubmitBtn = document.getElementById('passwordSubmitBtn');
+
+        const itNotificationCount = document.getElementById('itNotificationCount');
+        const managerNotificationCount = document.getElementById('managerNotificationCount');
+
+        const itHistorySearch = document.getElementById('itHistorySearch');
+        const itHistoryFilter = document.getElementById('itHistoryFilter');
+        // const managerHistorySearch = document.getElementById('managerHistorySearch'); // REMOVED - now managerITCRHistorySearch
+        // const managerHistoryFilter = document.getElementById('managerHistoryFilter'); // REMOVED - now managerITCRHistoryFilter
+
+        const showFullItHistoryBtn = document.getElementById('showFullItHistoryBtn');
+        // const showFullManagerHistoryBtn = document.getElementById('showFullManagerHistoryBtn'); // REMOVED - now showFullManagerITCRHistoryBtn
+
+        const fullHistoryModal = document.getElementById('fullHistoryModal');
+        const fullHistoryModalTitle = document.getElementById('fullHistoryModalTitle');
+        const fullHistorySearchInput = document.getElementById('fullHistorySearchInput');
+        const fullHistoryListContent = document.getElementById('fullHistoryListContent');
+        const noFullHistoryResults = document.getElementById('noFullHistoryResults');
+
+
+        // --- Helper Functions ---
+
+        function generateUniqueId() {
+            return Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
+        }
+
+        function showNotification(message, type = 'success') {
+            notificationMessage.textContent = message;
+            // Remove all possible type classes and then add the correct one
+            notificationArea.classList.remove('hidden', 'bg-green-100', 'border-green-400', 'text-green-700', 'bg-red-100', 'border-red-400', 'text-red-700', 'bg-blue-100', 'border-blue-400', 'text-blue-700');
+
+            notificationPrefix.textContent = ''; // Clear prefix by default
+            notificationPrefix.className = 'font-bold mr-1'; // Reset prefix styling
+
+            if (type === 'success') {
+                notificationArea.classList.add('bg-green-100', 'border-green-400', 'text-green-700');
+                notificationPrefix.textContent = 'Success!';
+            } else if (type === 'error') {
+                notificationArea.classList.add('bg-red-100', 'border-red-400', 'text-red-700');
+                notificationPrefix.textContent = 'Error!';
+            } else if (type === 'info') {
+                notificationArea.classList.add('bg-blue-100', 'border-blue-400', 'text-blue-700');
+                // No prefix for 'info' messages as per request
+            }
+            notificationArea.classList.remove('hidden');
+
+            setTimeout(() => {
+                notificationArea.classList.add('hidden');
+            }, 5000);
+        }
+
+        async function updateRequisitionInBackend(id, updatedRequisition) {
+            try {
+                const response = await fetch(`${API_BASE_URL}/${id}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(updatedRequisition),
+                });
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const data = await response.json();
+                return data;
+            } catch (error) {
+                console.error("Error updating requisition:", error);
+                showNotification('Failed to update requisition. Is the Python backend server running and accessible on the network?', 'error');
+                return null;
+            }
+        }
+
+        async function updateRequisitionStatus(id, newStatus, actor, notes = '') {
+            console.log("Inside updateRequisitionStatus. ID:", id, "New Status:", newStatus, "Actor:", actor);
+            const reqIndex = requisitions.findIndex(req => req.id === id);
+            if (reqIndex > -1) {
+                const req = { ...requisitions[reqIndex] };
+                req.status = newStatus;
+                req.changelog.push({
+                    timestamp: new Date().toLocaleString(),
+                    status: newStatus,
+                    actor: actor,
+                    notes: notes
+                });
+
+                // Update managerApprovalStatus specifically for leave requests
+                if (req.requisitionType === 'Leave') {
+                    if (newStatus === 'Approved by Manager') {
+                        req.managerApprovalStatus = 'Approved by Manager';
+                    } else if (newStatus === 'Declined') { // Declined status for leave
+                        req.managerApprovalStatus = 'Declined by Manager';
+                    }
+                }
+
+
+                const updated = await updateRequisitionInBackend(id, req);
+                if (updated) {
+                    requisitions[reqIndex] = updated;
+                    showNotification(`Requisition #${updated.display_id} status updated to "${newStatus}" by ${actor}.`); // Use display_id here
+                    renderRequests();
+                }
+            } else {
+                console.warn("Requisition not found for status update:", id);
+            }
+        }
+
+        function openModal(modalId, title, message, onConfirm, hideConfirmButton = false, cancelButtonText = 'Cancel') {
+            console.log(`Opening modal: ${modalId} with title: ${title}`);
+            const modal = document.getElementById(modalId);
+            modalTitle.textContent = title;
+            modalMessage.textContent = message;
+
+            modalConfirmBtn.classList.remove('hidden');
+            modalConfirmBtn.textContent = 'Confirm';
+            modalCancelBtn.textContent = 'Cancel';
+
+            if (hideConfirmButton) {
+                modalConfirmBtn.classList.add('hidden');
+            }
+            modalCancelBtn.textContent = cancelButtonText;
+
+            modal.style.display = 'flex';
+
+            modalConfirmBtn.onclick = null;
+            modalCancelBtn.onclick = null;
+
+            modalConfirmBtn.onclick = () => {
+                console.log("Confirm button clicked inside modal. Attempting to call onConfirm().");
+                onConfirm();
+                closeModal(modalId);
+            };
+            modalCancelBtn.onclick = () => closeModal(modalId);
+        }
+
+        function closeModal(modalId) {
+            console.log("Closing modal:", modalId);
+            const modal = document.getElementById(modalId);
+            modal.style.display = 'none';
+
+            if (modalId === 'passwordModal') {
+                passwordInput.value = '';
+                passwordError.classList.add('hidden');
+                const targetPortalId = passwordSubmitBtn.dataset.targetPortalId;
+                const authKey = passwordSubmitBtn.dataset.authKey;
+
+                // If password modal is closed without successful login, redirect to landing page
+                if (targetPortalId && authKey && sessionStorage.getItem(authKey) !== 'true') {
+                    console.log("Password modal closed without authentication. Redirecting to landing page.");
+                    showTab('landingPage');
+                }
+            } else if (modalId === 'fullHistoryModal') {
+                fullHistorySearchInput.value = ''; // Clear search when closing full history modal
+                noFullHistoryResults.classList.add('hidden');
+            }
+        }
+
+        async function fetchRequisitions() {
+            console.log("Attempting to fetch requisitions from:", API_BASE_URL);
+            try {
+                const response = await fetch(API_BASE_URL);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const data = await response.json();
+                console.log("Requisitions fetched successfully:", data);
+                return data;
+            }
+            catch (error) {
+                console.error("Error fetching requisitions:", error);
+                showNotification('Failed to load requisitions. Is the Python backend server running and accessible on the network?', 'error');
+                return [];
+            }
+        }
+
+        async function addRequisitionToBackend(newRequisition) {
+            console.log("Sending new requisition to backend:", newRequisition);
+            try {
+                const response = await fetch(API_BASE_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(newRequisition),
+                });
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const data = await response.json();
+                console.log("Requisition added successfully:", data);
+                return data;
+            } catch (error) {
+                console.error("Error adding requisition to backend:", error);
+                showNotification('Failed to submit requisition. Is the Python backend server running and accessible and the database schema correct?', 'error');
+                return null;
+            }
+        }
+
+        async function deleteRequisition(id) {
+            console.log("Attempting to delete requisition with ID:", id);
+            // Find the requisition to get its display_id before deletion
+            const reqToDelete = requisitions.find(req => req.id === id);
+            const displayIdForNotification = reqToDelete ? reqToDelete.display_id : id.substring(0, 5) + '...';
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/${id}`, {
+                    method: 'DELETE',
+                });
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                showNotification(`Requisition #${displayIdForNotification} deleted successfully.`); // Use display_id here
+                renderRequests();
+                // If full history modal is open, re-render it
+                if (fullHistoryModal.style.display === 'flex') {
+                    // Determine which portal's full history was open
+                    const currentModalTitle = fullHistoryModalTitle.textContent;
+                    let portalType = 'it';
+                    let specificHistoryType = 'All';
+                    if (currentModalTitle.includes('Manager Leave')) {
+                        portalType = 'manager';
+                        specificHistoryType = 'Leave';
+                    } else if (currentModalTitle.includes('Manager IT & CR')) {
+                        portalType = 'manager';
+                        specificHistoryType = 'ITCR';
+                    }
+                    renderFullHistory(portalType, fullHistorySearchInput.value, 'All', specificHistoryType); // Pass current search/filter
+                }
+            } catch (error) {
+                console.error("Error deleting requisition:", error);
+                showNotification('Failed to delete requisition. Check server connection.', 'error');
+            }
+        }
+
+        // --- New Helper Functions for Date and Time Formatting ---
+        function formatDateForDisplay(isoDateString) {
+            if (!isoDateString || isoDateString === 'N/A') return 'N/A';
+            const parts = isoDateString.split('-'); // Assumes YYYY-MM-DD
+            if (parts.length === 3) {
+                return `${parts[2]}/${parts[1]}/${parts[0]}`; // DD/MM/YYYY
+            }
+            // Fallback for dates that might already be in a different format (e.g., from toLocaleString)
+            try {
+                const date = new Date(isoDateString);
+                if (!isNaN(date.getTime())) { // Check if date is valid
+                    return date.toLocaleDateString('en-GB'); // Uses locale for DD/MM/YYYY
+                }
+            } catch (e) {
+                console.error("Error parsing date for display:", isoDateString, e);
+            }
+            return isoDateString; // Return as is if unable to format
+        }
+
+        function formatTimeForDisplay(timeString) {
+            if (!timeString || timeString === 'N/A') return 'N/A';
+            try {
+                // Handle 'HH:MM' format from input
+                const [hours, minutes] = timeString.split(':').map(Number);
+                if (!isNaN(hours) && !isNaN(minutes)) {
+                    const date = new Date(); // Use a dummy date to leverage Date object for formatting
+                    date.setHours(hours, minutes, 0, 0); // Set seconds and milliseconds to 0
+                    return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+                }
+                // Handle full timestamp strings (e.g., from changelog)
+                const date = new Date(timeString);
+                if (!isNaN(date.getTime())) { // Check if date is valid
+                    return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+                }
+            } catch (e) {
+                console.error("Error parsing time for display:", timeString, e);
+            }
+            return timeString; // Return as is if unable to format
+        }
+        // --- End New Helper Functions ---
+
+
+        function renderRequisitionCard(req, portalType) {
+            // Ensure requisitionType and userName have fallback values
+            req.requisitionType = req.requisitionType || 'IT'; // Default to 'IT' if undefined
+            req.userName = req.userName || 'N/A';
+            req.userDesignation = req.userDesignation || 'N/A';
+            // Ensure display_id has a fallback if it's not present (for old records before update)
+            const displayId = req.display_id || req.id.substring(0, 5) + '...';
+
+
+            console.log(`Rendering card for req ID: ${req.id}, Type: ${req.requisitionType}, Status: ${req.status}, Portal: ${portalType}, User: ${req.userName}, Display ID: ${displayId}`); // Debugging
+            let actionsHtml = '';
+            let statusClass = '';
+            let detailsHtml = '';
+            let requisitionTitle = '';
+
+            // Determine status class and title based on requisition type
+            if (req.requisitionType === 'IT') {
+                requisitionTitle = `IT Requisition #${displayId}`;
+                switch (req.status) {
+                    case 'Pending IT Verification':
+                        statusClass = 'status-pending-it';
+                        break;
+                    case 'Verified by IT – Awaiting Manager Approval':
+                        statusClass = 'status-verified-it';
+                        break;
+                    case 'Approved by Manager – Ready for Fixing':
+                        statusClass = 'status-approved-manager';
+                        break;
+                    case 'Completed':
+                        statusClass = 'status-completed';
+                        break;
+                    case 'Declined':
+                        statusClass = 'status-declined';
+                        break;
+                    default:
+                        statusClass = '';
+                }
+                detailsHtml = `
+                    <p class="text-sm text-gray-600 mb-1"><strong>User:</strong> ${req.userName} (${req.userDesignation})</p>
+                    <p class="text-sm text-gray-600 mb-1"><strong>Issue Type:</strong> ${req.issueType || 'N/A'}</p>
+                    <p class="text-sm text-gray-600 mb-2"><strong>Description:</strong> ${req.problemDescription || 'N/A'}</p>
+                `;
+            } else if (req.requisitionType === 'Conference Room') {
+                requisitionTitle = `CR Requisition #${displayId}`;
+                switch (req.status) {
+                    case 'Pending CR Verification':
+                        statusClass = 'status-pending-it'; // Reusing for visual consistency
+                        break;
+                    case 'CR Verified - Awaiting Manager Approval':
+                        statusClass = 'status-verified-it';
+                        break;
+                    case 'CR Approved - Ready for Booking':
+                        statusClass = 'status-approved-manager';
+                        break;
+                    case 'CR Booked':
+                        statusClass = 'status-completed'; // Reusing for visual consistency
+                        break;
+                    case 'CR Declined':
+                        statusClass = 'status-declined';
+                        break;
+                    default:
+                        statusClass = '';
+                }
+                detailsHtml = `
+                    <p class="text-sm text-gray-600 mb-1"><strong>User:</strong> ${req.userName} (${req.userDesignation})</p>
+                    <p class="text-sm text-gray-600 mb-1"><strong>Meeting Date:</strong> ${formatDateForDisplay(req.meetingDate || 'N/A')}</p>
+                    <p class="text-sm text-gray-600 mb-1"><strong>Meeting Time:</strong> ${formatTimeForDisplay(req.meetingTime || 'N/A')}</p>
+                    <p class="text-sm text-gray-600 mb-1"><strong>Participants:</strong> ${req.numParticipants || 'N/A'}</p>
+                    <p class="text-sm text-gray-600 mb-2"><strong>Description:</strong> ${req.meetingDescription || 'N/A'}</p>
+                `;
+                console.log("Conference Room Requisition Card Details HTML generated:", detailsHtml); // Debugging
+            } else if (req.requisitionType === 'Leave') { // NEW: Leave Requisition
+                requisitionTitle = `Leave Request #${displayId}`;
+                switch (req.status) {
+                    case 'Pending Manager Approval':
+                        statusClass = 'status-leave-pending-manager';
+                        break;
+                    case 'Approved by Manager': // Final approved status for leave
+                        statusClass = 'status-leave-approved-manager';
+                        break;
+                    case 'Declined': // Declined status for leave
+                        statusClass = 'status-leave-declined-manager';
+                        break;
+                    default:
+                        statusClass = '';
+                }
+                detailsHtml = `
+                    <p class="text-sm text-gray-600 mb-1"><strong>User:</strong> ${req.userName} (${req.userDesignation})</p>
+                    <p class="text-sm text-gray-600 mb-1"><strong>Leave Type:</strong> ${req.leaveType || 'N/A'}</p>
+                    <p class="text-sm text-gray-600 mb-1"><strong>Dates:</strong> ${formatDateForDisplay(req.startDate || 'N/A')} to ${formatDateForDisplay(req.endDate || 'N/A')}</p>
+                    <p class="text-sm text-gray-600 mb-2"><strong>Reason:</strong> ${req.reason || 'N/A'}</p>
+                `;
+                console.log("Leave Requisition Card Details HTML generated:", detailsHtml); // Debugging
+            }
+            else {
+                // Fallback for unknown requisition types
+                requisitionTitle = `Unknown Requisition #${displayId}`;
+                statusClass = ''; // No specific status class
+                detailsHtml = `
+                    <p class="text-sm text-gray-600 mb-1"><strong>User:</strong> ${req.userName} (${req.userDesignation})</p>
+                    <p class="text-sm text-gray-600 mb-2"><strong>Status:</strong> ${req.status || 'N/A'}</p>
+                    <p class="text-sm text-gray-600 mb-2"><strong>Notes:</strong> This requisition has an unknown type. Please check the backend data.</p>
+                `;
+            }
+
+
+            // Action buttons based on requisition type and status
+            if (portalType === 'it') {
+                console.log(`IT Portal: Checking actions for req ID: ${req.id}, Status: ${req.status}, Type: ${req.requisitionType}`); // Debugging
+                if (req.requisitionType === 'IT') {
+                    if (req.status === 'Pending IT Verification') {
+                        actionsHtml += `
+                            <button onclick="openModal('confirmationModal', 'Verify IT Requisition', 'Are you sure you want to verify this IT requisition and mark it as ready for manager approval?', () => verifyRequisition('${req.id}'))" class="bg-blue-500 text-white px-3 py-1 rounded-md hover:bg-blue-600 transition-colors">Verify & Forward</button>
+                            <button onclick="openModal('confirmationModal', 'Decline IT Request', 'Are you sure you want to decline this IT request? This action cannot be undone.', () => declineRequisition('${req.id}', 'IT'))" class="bg-red-500 text-white px-3 py-1 rounded-md hover:bg-red-600 transition-colors">Decline Request</button>
+                        `;
+                        console.log(`IT Requisition: Pending IT Verification actions added.`); // Debugging
+                    } else if (req.status === 'Approved by Manager – Ready for Fixing') {
+                        actionsHtml += `
+                            <button onclick="openModal('confirmationModal', 'Mark IT as Fixed', 'Are you sure you want to mark this IT requisition as fixed?', () => markAsFixed('${req.id}'))" class="bg-green-500 text-white px-3 py-1 rounded-md hover:bg-green-600 transition-colors">Mark as Fixed</button>
+                        `;
+                        console.log(`IT Requisition: Approved by Manager actions added.`); // Debugging
+                    }
+                } else if (req.requisitionType === 'Conference Room') {
+                    if (req.status === 'Pending CR Verification') {
+                        actionsHtml += `
+                            <button onclick="openModal('confirmationModal', 'Verify CR Requisition', 'Are you sure you want to verify this Conference Room requisition and forward for manager approval?', () => verifyConferenceRoomRequisition('${req.id}'))" class="bg-blue-500 text-white px-3 py-1 rounded-md hover:bg-blue-600 transition-colors">Verify & Forward</button>
+                            <button onclick="openModal('confirmationModal', 'Decline CR Request', 'Are you sure you want to decline this Conference Room request? This action cannot be undone.', () => declineRequisition('${req.id}', 'IT'))" class="bg-red-500 text-white px-3 py-1 rounded-md hover:bg-red-600 transition-colors">Decline Request</button>
+                        `;
+                        console.log(`CR Requisition: Pending CR Verification actions added.`); // Debugging
+                    } else if (req.status === 'CR Approved - Ready for Booking') {
+                        actionsHtml += `
+                            <button onclick="openModal('confirmationModal', 'Mark CR as Booked', 'Are you sure you want to mark this Conference Room requisition as booked?', () => markConferenceRoomAsBooked('${req.id}'))" class="bg-green-500 text-white px-3 py-1 rounded-md hover:bg-green-600 transition-colors">Mark as Booked</button>
+                        `;
+                        console.log(`CR Requisition: CR Approved actions added.`); // Debugging
+                    }
+                }
+            } else if (portalType === 'manager') {
+                console.log(`Manager Portal: Checking actions for req ID: ${req.id}, Status: ${req.status}, Type: ${req.requisitionType}`); // Debugging
+                if (req.requisitionType === 'IT') {
+                    if (req.status === 'Verified by IT – Awaiting Manager Approval') {
+                        actionsHtml += `
+                            <button onclick="openModal('confirmationModal', 'Approve IT Requisition', 'Are you sure you want to approve this IT requisition?', () => approveRequisition('${req.id}'))" class="bg-purple-500 text-white px-3 py-1 rounded-md hover:bg-purple-600 transition-colors">Approve</button>
+                            <button onclick="openModal('confirmationModal', 'Decline IT Request', 'Are you sure you want to decline this IT request? This action cannot be undone.', () => declineRequisition('${req.id}', 'Manager'))" class="bg-red-500 text-white px-3 py-1 rounded-md hover:bg-red-600 transition-colors">Decline Request</button>
+                        `;
+                        console.log(`Manager: IT Requisition Verified by IT actions added.`); // Debugging
+                    }
+                } else if (req.requisitionType === 'Conference Room') {
+                    if (req.status === 'CR Verified - Awaiting Manager Approval') {
+                        actionsHtml += `
+                            <button onclick="openModal('confirmationModal', 'Approve CR Requisition', 'Are you sure you want to approve this Conference Room requisition?', () => approveConferenceRoomRequisition('${req.id}'))" class="bg-purple-500 text-white px-3 py-1 rounded-md hover:bg-purple-600 transition-colors">Approve</button>
+                            <button onclick="openModal('confirmationModal', 'Decline CR Request', 'Are you sure you want to decline this Conference Room request? This action cannot be undone.', () => declineRequisition('${req.id}', 'Manager'))" class="bg-red-500 text-white px-3 py-1 rounded-md hover:bg-red-600 transition-colors">Decline Request</button>
+                        `;
+                        console.log(`Manager: CR Requisition Verified by IT actions added.`); // Debugging
+                    }
+                } else if (req.requisitionType === 'Leave') { // NEW: Manager actions for Leave
+                    if (req.status === 'Pending Manager Approval') {
+                        actionsHtml += `
+                            <button onclick="openModal('confirmationModal', 'Approve Leave', 'Are you sure you want to approve this leave request?', () => approveLeaveByManager('${req.id}'))" class="bg-green-500 text-white px-3 py-1 rounded-md hover:bg-green-600 transition-colors">Approve Leave</button>
+                            <button onclick="openModal('confirmationModal', 'Decline Leave', 'Are you sure you want to decline this leave request? This action cannot be undone.', () => declineLeaveByManager('${req.id}'))" class="bg-red-500 text-white px-3 py-1 rounded-md hover:bg-red-600 transition-colors">Decline Leave</button>
+                        `;
+                        console.log(`Manager: Leave Request Pending Manager Approval actions added.`); // Debugging
+                    }
+                }
+            }
+
+            // Common actions for completed/declined/booked requests
+            if (req.status === 'Completed' || req.status === 'Declined' || req.status === 'CR Booked' || req.status === 'CR Declined' || req.status === 'Approved by Manager') { // Added 'Approved by Manager' for Leave
+                actionsHtml += `
+                    <button onclick="openModal('confirmationModal', 'Delete Requisition', 'Are you sure you want to permanently delete this completed requisition from history?', () => deleteRequisition('${req.id}'))" class="bg-gray-500 text-white px-3 py-1 rounded-md hover:bg-gray-600 transition-colors">Delete From History</button>
+                `;
+                console.log(`History actions (Delete) added for req ID: ${req.id}`); // Debugging
+            }
+
+            const cardHtml = `
+                <div class="bg-gray-50 p-4 rounded-lg shadow-sm border border-gray-200">
+                    <div class="flex justify-between items-center mb-2">
+                        <h3 class="text-lg font-semibold text-primaryAccent">${requisitionTitle}</h3>
+                        <span class="status-text ${statusClass}">${req.status}</span>
+                    </div>
+                    ${detailsHtml}
+                    <div class="flex flex-wrap gap-2 mb-3">
+                        <button onclick="viewTimeline('${req.id}')" class="bg-gray-200 text-gray-800 px-3 py-1 rounded-md hover:bg-gray-300 transition-colors">View Timeline</button>
+                        ${(req.status === 'Completed' || req.status === 'Declined' || req.status === 'CR Booked' || req.status === 'CR Declined' || req.status === 'Approved by Manager') ? `<button onclick="generateReport('${req.id}')" class="bg-primaryAccent text-white px-3 py-1 rounded-md hover:bg-blue-600 transition-colors">Download Report</button>` : ''}
+                        ${actionsHtml}
+                    </div>
+                </div>
+            `;
+            console.log(`Generated HTML for req ID ${req.id}:`, cardHtml); // Debugging
+            return cardHtml;
+        }
+
+        async function renderRequests() {
+            console.log("Rendering requests...");
+            requisitions = await fetchRequisitions();
+
+            itRequestsList.innerHTML = '';
+            managerLeaveRequestsList.innerHTML = ''; // Clear new leave list
+            managerITCRRequestsList.innerHTML = ''; // Clear IT/CR list
+            itHistoryList.innerHTML = '';
+            managerLeaveHistoryList.innerHTML = ''; // Clear new leave history
+            managerITCRHistoryList.innerHTML = ''; // Clear IT/CR history
+
+            let itActiveCount = 0;
+            let managerActiveCount = 0; // Total manager active count
+
+            const itSearchQuery = itHistorySearch.value.toLowerCase();
+            const itFilterType = itHistoryFilter.value;
+
+            const managerLeaveSearchQuery = managerLeaveHistorySearch.value.toLowerCase(); // NEW
+            const managerLeaveFilterType = managerLeaveHistoryFilter.value; // NEW
+
+            const managerITCRSearchQuery = managerITCRHistorySearch.value.toLowerCase(); // NEW
+            const managerITCRFilterType = managerITCRHistoryFilter.value; // NEW
+
+
+            // Sort requisitions by timestamp in descending order for "recent" display
+            const sortedRequisitions = [...requisitions].sort((a, b) => {
+                const dateA = new Date(a.changelog[0].timestamp);
+                const dateB = new Date(b.changelog[0].timestamp);
+                return dateB - dateA;
+            });
+
+            console.log("Sorted Requisitions:", sortedRequisitions);
+
+
+            const itHistoricalRequests = [];
+            const managerLeaveHistoricalRequests = []; // NEW
+            const managerITCRHistoricalRequests = []; // NEW
+
+
+            sortedRequisitions.forEach(req => {
+                // IMPORTANT: Ensure requisitionType is defined, especially for older entries
+                if (req.requisitionType === undefined || req.requisitionType === null) {
+                    req.requisitionType = 'IT'; // Default to 'IT' if type is missing
+                    console.warn(`Requisition ID ${req.id} had undefined requisitionType. Defaulting to 'IT'.`);
+                }
+
+                console.log(`Processing requisition for rendering: ID=${req.id}, Type=${req.requisitionType}, Status=${req.status}`); // Added log
+
+                // IT Portal Logic (Pending IT, Approved by Manager for IT, Pending CR, Approved by Manager for CR)
+                // Note: IT Portal does NOT handle 'Leave' requests
+                if ((req.requisitionType === 'IT' && (req.status === 'Pending IT Verification' || req.status === 'Approved by Manager – Ready for Fixing')) ||
+                    (req.requisitionType === 'Conference Room' && (req.status === 'Pending CR Verification' || req.status === 'CR Approved - Ready for Booking'))) {
+                    itRequestsList.innerHTML += renderRequisitionCard(req, 'it');
+                    itActiveCount++;
+                }
+
+                // Manager Portal Logic
+                if (req.requisitionType === 'Leave') {
+                    if (req.status === 'Pending Manager Approval') {
+                        managerLeaveRequestsList.innerHTML += renderRequisitionCard(req, 'manager');
+                        managerActiveCount++;
+                    }
+                } else if (req.requisitionType === 'IT' || req.requisitionType === 'Conference Room') {
+                    if (req.status === 'Verified by IT – Awaiting Manager Approval' || req.status === 'CR Verified - Awaiting Manager Approval') {
+                        managerITCRRequestsList.innerHTML += renderRequisitionCard(req, 'manager');
+                        managerActiveCount++;
+                    }
+                }
+
+
+                // Identify historical requests for IT Portal (IT and CR types only)
+                // 'Approved by Manager – Ready for Fixing' is an active status for IT, not historical for IT portal
+                const isHistoricalForIT = (req.status === 'Completed' || req.status === 'Declined' || req.status === 'CR Booked' || req.status === 'CR Declined');
+                if (isHistoricalForIT) {
+                    if (req.requisitionType === 'IT' || req.requisitionType === 'Conference Room') {
+                        itHistoricalRequests.push(req);
+                    }
+                }
+
+                // Identify historical requests for Manager Leave History
+                const isHistoricalForManagerLeave = (req.requisitionType === 'Leave' && (req.status === 'Approved by Manager' || req.status === 'Declined'));
+                console.log(`Requisition ${req.id} (Leave): isHistoricalForManagerLeave = ${isHistoricalForManagerLeave}, Status = ${req.status}`);
+                if (isHistoricalForManagerLeave) {
+                    managerLeaveHistoricalRequests.push(req);
+                }
+
+                // Identify historical requests for Manager IT/CR History
+                const isHistoricalForManagerITCR = ((req.requisitionType === 'IT' || req.requisitionType === 'Conference Room') && (req.status === 'Completed' || req.status === 'Declined' || req.status === 'CR Booked' || req.status === 'CR Declined'));
+                console.log(`Requisition ${req.id} (IT/CR): isHistoricalForManagerITCR = ${isHistoricalForManagerITCR}, Status = ${req.status}`);
+                if (isHistoricalForManagerITCR) {
+                    managerITCRHistoricalRequests.push(req);
+                }
+            });
+
+            console.log("Manager Leave Historical Requests after loop:", managerLeaveHistoricalRequests);
+            console.log("Manager IT/CR Historical Requests after loop:", managerITCRHistoricalRequests);
+
+
+            // Filter and render recent 10 for IT History
+            const filteredItHistory = itHistoricalRequests.filter(req => {
+                const matchesSearch = !itSearchQuery || (req.userName && req.userName.toLowerCase().includes(itSearchQuery));
+                const matchesFilter = itFilterType === 'All' || req.requisitionType === itFilterType;
+                return matchesSearch && matchesFilter;
+            });
+
+            itHistoryList.innerHTML = ''; // Ensure cleared before adding
+            filteredItHistory.slice(0, 10).forEach(req => {
+                itHistoryList.innerHTML += renderRequisitionCard(req, 'it');
+            });
+            console.log(`IT History List children length: ${itHistoryList.children.length}`);
+            noItHistory.classList.toggle('hidden', itHistoryList.children.length > 0);
+            showFullItHistoryBtn.classList.toggle('hidden', filteredItHistory.length <= 10);
+
+
+            // Filter and render recent 10 for Manager Leave History
+            const filteredManagerLeaveHistory = managerLeaveHistoricalRequests.filter(req => {
+                const matchesSearch = !managerLeaveSearchQuery || (req.userName && req.userName.toLowerCase().includes(managerLeaveSearchQuery));
+                const matchesFilter = managerLeaveFilterType === 'All' || req.leaveType === managerLeaveFilterType;
+                return matchesSearch && matchesFilter;
+            });
+            console.log("Filtered Manager Leave History (before slice):", filteredManagerLeaveHistory);
+
+            managerLeaveHistoryList.innerHTML = ''; // Ensure cleared before adding
+            filteredManagerLeaveHistory.slice(0, 10).forEach(req => {
+                managerLeaveHistoryList.innerHTML += renderRequisitionCard(req, 'manager');
+            });
+            console.log(`Manager Leave History List children length: ${managerLeaveHistoryList.children.length}`);
+            noManagerLeaveHistory.classList.toggle('hidden', managerLeaveHistoryList.children.length > 0);
+            showFullManagerLeaveHistoryBtn.classList.toggle('hidden', filteredManagerLeaveHistory.length <= 10);
+
+
+            // Filter and render recent 10 for Manager IT/CR History
+            const filteredManagerITCRHistory = managerITCRHistoricalRequests.filter(req => {
+                const matchesSearch = !managerITCRSearchQuery || (req.userName && req.userName.toLowerCase().includes(managerITCRSearchQuery));
+                const matchesFilter = managerITCRFilterType === 'All' || req.requisitionType === managerITCRFilterType;
+                return matchesSearch && matchesFilter;
+            });
+            console.log("Filtered Manager IT/CR History (before slice):", filteredManagerITCRHistory);
+
+            managerITCRHistoryList.innerHTML = ''; // Ensure cleared before adding
+            filteredManagerITCRHistory.slice(0, 10).forEach(req => {
+                managerITCRHistoryList.innerHTML += renderRequisitionCard(req, 'manager');
+            });
+            console.log(`Manager IT/CR History List children length: ${managerITCRHistoryList.children.length}`);
+            noManagerITCRHistory.classList.toggle('hidden', managerITCRHistoryList.children.length > 0);
+            showFullManagerITCRHistoryBtn.classList.toggle('hidden', filteredManagerITCRHistory.length <= 10);
+
+
+            if (itActiveCount > 0) {
+                itNotificationCount.classList.remove('hidden');
+            } else {
+                itNotificationCount.classList.add('hidden');
+            }
+
+            if (managerActiveCount > 0) {
+                managerNotificationCount.classList.remove('hidden');
+            } else {
+                managerNotificationCount.classList.add('hidden');
+            }
+
+            noItRequests.classList.toggle('hidden', itRequestsList.children.length > 0);
+            noManagerLeaveRequests.classList.toggle('hidden', managerLeaveRequestsList.children.length > 0); // Check actual children
+            noManagerITCRRequests.classList.toggle('hidden', managerITCRRequestsList.children.length > 0); // Check actual children
+        }
+
+        // Function to render full history in the modal
+        function renderFullHistory(portalType, searchQuery = '', filterType = 'All', specificHistoryType = 'All') {
+            fullHistoryListContent.innerHTML = ''; // Clear previous content
+            const query = searchQuery.toLowerCase();
+            let resultsCount = 0;
+
+            let historyToFilter = [];
+            if (portalType === 'it') {
+                historyToFilter = requisitions.filter(req =>
+                    // Only include IT and Conference Room requests for IT portal history
+                    (req.requisitionType === 'IT' || req.requisitionType === 'Conference Room') &&
+                    (req.status === 'Completed' || req.status === 'Declined' || req.status === 'CR Booked' || req.status === 'CR Declined') // Excluded 'Approved by Manager – Ready for Fixing' as it's an active status for IT
+                );
+            } else if (portalType === 'manager') {
+                if (specificHistoryType === 'Leave') {
+                    historyToFilter = requisitions.filter(req =>
+                        req.requisitionType === 'Leave' && (req.status === 'Approved by Manager' || req.status === 'Declined')
+                    );
+                } else { // IT/CR History
+                    historyToFilter = requisitions.filter(req =>
+                        (req.requisitionType === 'IT' || req.requisitionType === 'Conference Room') && (req.status === 'Completed' || req.status === 'Declined' || req.status === 'CR Booked' || req.status === 'CR Declined')
+                    );
+                }
+            }
+
+
+            // Sort historical requests by timestamp in descending order
+            const sortedHistoricalRequests = [...historyToFilter].sort((a, b) => {
+                const dateA = new Date(a.changelog[0].timestamp);
+                const dateB = new Date(b.changelog[0].timestamp);
+                return dateB - dateA; // Sort descending
+            });
+
+            sortedHistoricalRequests.forEach(req => {
+                // IMPORTANT: Ensure requisitionType is defined, especially for older entries
+                if (req.requisitionType === undefined || req.requisitionType === null) {
+                    req.requisitionType = 'IT'; // Default to 'IT' if type is missing
+                    console.warn(`Requisition ID ${req.id} in full history had undefined requisitionType. Defaulting to 'IT'.`);
+                }
+
+                const matchesSearch = !query || (req.userName && req.userName.toLowerCase().includes(query));
+                let matchesFilter = true;
+
+                if (portalType === 'it' && filterType !== 'All') {
+                    matchesFilter = req.requisitionType === filterType;
+                } else if (portalType === 'manager') {
+                    if (specificHistoryType === 'Leave' && filterType !== 'All') {
+                        matchesFilter = req.leaveType === filterType;
+                    } else if (specificHistoryType === 'ITCR' && filterType !== 'All') {
+                        matchesFilter = req.requisitionType === filterType;
+                    }
+                }
+
+                if (matchesSearch && matchesFilter) {
+                    fullHistoryListContent.innerHTML += renderRequisitionCard(req, portalType);
+                    resultsCount++;
+                }
+            });
+
+            noFullHistoryResults.classList.toggle('hidden', resultsCount > 0);
+        }
+
+
+        requisitionForm.addEventListener('submit', async function(event) {
+            event.preventDefault();
+            console.log("IT Requisition form submitted. Processing request.");
+
+            const newRequisition = {
+                id: generateUniqueId(), // Keep original ID for internal use
+                requisitionType: 'IT', // Explicitly set type
+                userName: document.getElementById('userName').value,
+                userDesignation: document.getElementById('userDesignation').value,
+                userPhone: document.getElementById('userPhone').value,
+                issueType: document.getElementById('issueType').value,
+                problemDescription: document.getElementById('problemDescription').value,
+                status: 'Pending IT Verification',
+                changelog: []
+            };
+
+            newRequisition.changelog.push({
+                timestamp: new Date().toLocaleString(),
+                status: 'Pending IT Verification',
+                actor: 'User',
+                notes: 'IT Requisition submitted.'
+            });
+
+            try {
+                const addedReq = await addRequisitionToBackend(newRequisition);
+                if (addedReq) {
+                    showNotification(`Your IT requisition #${addedReq.display_id} has been submitted successfully! IT has been notified (in-app).`); // Use display_id
+                    requisitionForm.reset();
+                    showTab('userPortal');
+                }
+            } catch (error) {
+                console.error("Error during IT requisition submission:", error);
+                showNotification('Failed to submit IT requisition due to an unexpected error.', 'error');
+            }
+        });
+
+        conferenceRoomRequisitionForm.addEventListener('submit', async function(event) {
+            event.preventDefault();
+            console.log("Conference Room Requisition form submitted. Processing request.");
+
+            const newRequisition = {
+                id: generateUniqueId(), // Keep original ID for internal use
+                requisitionType: 'Conference Room', // Explicitly set type
+                userName: document.getElementById('cr_userName').value,
+                userDesignation: document.getElementById('cr_userDesignation').value,
+                userPhone: null, // Explicitly set to null for CR requisitions
+                issueType: null, // Explicitly set to null for CR requisitions
+                problemDescription: null, // Explicitly set to null for CR requisitions
+                meetingDate: document.getElementById('cr_meetingDate').value,
+                meetingTime: document.getElementById('cr_meetingTime').value,
+                meetingDescription: document.getElementById('cr_meetingDescription').value,
+                numParticipants: parseInt(document.getElementById('cr_numParticipants').value, 10),
+                status: 'Pending CR Verification', // Initial status for CR
+                changelog: []
+            };
+
+            newRequisition.changelog.push({
+                timestamp: new Date().toLocaleString(),
+                status: 'Pending CR Verification',
+                actor: 'User',
+                notes: 'Conference Room Requisition submitted.'
+            });
+
+            try {
+                const addedReq = await addRequisitionToBackend(newRequisition);
+                if (addedReq) {
+                    showNotification(`Your Conference Room requisition #${addedReq.display_id} has been submitted successfully! IT has been notified (in-app).`); // Use display_id
+                    conferenceRoomRequisitionForm.reset();
+                    showTab('conferenceRoomPortal'); // Stay on the same portal after submission
+                }
+            } catch (error) {
+                console.error("Error during conference room requisition submission:", error);
+                showNotification('Failed to submit conference room requisition due to an unexpected error.', 'error');
+            }
+        });
+
+        // NEW: Leave Request Form Submission
+        leaveRequestForm.addEventListener('submit', async function(event) {
+            event.preventDefault();
+            console.log("Leave Request form submitted. Processing request.");
+
+            const newRequisition = {
+                id: generateUniqueId(), // Keep original ID for internal use
+                requisitionType: 'Leave', // Explicitly set type
+                userName: document.getElementById('leave_userName').value,
+                userDesignation: document.getElementById('leave_userDesignation').value,
+                userPhone: null, // Explicitly null for Leave
+                issueType: null, // Explicitly null for Leave
+                problemDescription: null, // Explicitly null for Leave
+                meetingDate: null, // Explicitly null for Leave
+                meetingTime: null, // Explicitly null for Leave
+                meetingDescription: null, // Explicitly null for Leave
+                numParticipants: null, // Explicitly null for Leave
+                leaveType: document.getElementById('leaveType').value,
+                startDate: document.getElementById('startDate').value,
+                endDate: document.getElementById('endDate').value,
+                reason: document.getElementById('reason').value,
+                status: 'Pending Manager Approval', // Initial status for Leave
+                managerApprovalStatus: 'Pending Manager Approval', // Specific status for Manager approval
+                changelog: []
+            };
+
+            newRequisition.changelog.push({
+                timestamp: new Date().toLocaleString(),
+                status: 'Pending Manager Approval',
+                actor: 'User',
+                notes: 'Leave Request submitted.'
+            });
+
+            try {
+                const addedReq = await addRequisitionToBackend(newRequisition);
+                if (addedReq) {
+                    showNotification(`Your Leave Request #${addedReq.display_id} has been submitted successfully! Manager has been notified (in-app).`); // Use display_id
+                    leaveRequestForm.reset();
+                    showTab('leaveRequestPortal'); // Stay on the same portal after submission
+                }
+            } catch (error) {
+                console.error("Error during leave request submission:", error);
+                showNotification('Failed to submit leave request due to an unexpected error.', 'error');
+            }
+        });
+
+
+        function verifyRequisition(id) {
+            console.log("verifyRequisition function called for ID:", id);
+            updateRequisitionStatus(id, 'Verified by IT – Awaiting Manager Approval', 'IT');
+        }
+
+        function approveRequisition(id) {
+            updateRequisitionStatus(id, 'Approved by Manager – Ready for Fixing', 'Manager');
+        }
+
+        function markAsFixed(id) {
+            updateRequisitionStatus(id, 'Completed', 'IT', 'Issue fixed by IT.');
+            showNotification('Requisition marked as fixed and completed!');
+        }
+
+        function declineRequisition(id, actor) {
+            console.log("declineRequisition function called for ID:", id, "by actor:", actor);
+            const req = requisitions.find(r => r.id === id);
+            const notes = req.requisitionType === 'IT' ? 'IT Request declined.' : 'Conference Room Request declined.';
+            updateRequisitionStatus(id, req.requisitionType === 'IT' ? 'Declined' : 'CR Declined', actor, notes);
+            // Use display_id if available, otherwise fallback to truncated original ID
+            const displayIdForNotification = req.display_id || id.substring(0, 5) + '...';
+            showNotification(`Requisition #${displayIdForNotification} declined by ${actor}.`);
+        }
+
+        // CR specific status update functions
+        function verifyConferenceRoomRequisition(id) {
+            console.log("verifyConferenceRoomRequisition function called for ID:", id);
+            updateRequisitionStatus(id, 'CR Verified - Awaiting Manager Approval', 'IT');
+        }
+
+        function approveConferenceRoomRequisition(id) {
+            console.log("approveConferenceRoomRequisition function called for ID:", id);
+            updateRequisitionStatus(id, 'CR Approved - Ready for Booking', 'Manager');
+        }
+
+        function markConferenceRoomAsBooked(id) {
+            console.log("markConferenceRoomAsBooked function called for ID:", id);
+            updateRequisitionStatus(id, 'CR Booked', 'IT', 'Conference Room booked.');
+            showNotification('Conference Room requisition marked as booked and completed!');
+        }
+
+        // NEW: Leave specific status update functions
+        function approveLeaveByManager(id) {
+            console.log("approveLeaveByManager function called for ID:", id);
+            updateRequisitionStatus(id, 'Approved by Manager', 'Manager', 'Leave approved by Manager.');
+            showNotification('Leave request approved by Manager!');
+        }
+
+        function declineLeaveByManager(id) {
+            console.log("declineLeaveByManager function called for ID:", id);
+            updateRequisitionStatus(id, 'Declined', 'Manager', 'Leave declined by Manager.'); // Reusing 'Declined' status for simplicity
+            showNotification('Leave request declined by Manager!');
+        }
+
+
+        function viewTimeline(id) {
+            console.log("Viewing timeline for ID:", id);
+            const req = requisitions.find(r => r.id === id);
+            if (!req) {
+                console.warn("Requisition not found for timeline view:", id);
+                return;
+            }
+            const displayId = req.display_id || req.id.substring(0, 5) + '...'; // Use display_id
+
+
+            let timelineHtml = `
+                <div class="space-y-3">
+                    ${req.changelog.map(entry => {
+                        const entryDate = new Date(entry.timestamp);
+                        const formattedTimestamp = `${entryDate.toLocaleDateString('en-GB')} ${entryDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })}`;
+                        return `
+                        <div class="border-l-2 pl-4 py-1 ${getStatusClass(entry.status).includes('completed') || getStatusClass(entry.status).includes('booked') || getStatusClass(entry.status).includes('approved') ? 'border-green-500' : getStatusClass(entry.status).includes('declined') ? 'border-red-500' : 'border-primaryAccent'}">
+                            <p class="text-sm text-gray-500">${formattedTimestamp}</p>
+                            <p class="font-medium text-gray-700">Status: <span class="status-text ${getStatusClass(entry.status)}">${entry.status}</span></p>
+                            <p class="text-sm text-gray-600">Action by: ${entry.actor}</p>
+                            ${entry.notes ? `<p class="text-xs text-gray-500 italic">Notes: ${entry.notes}</p>` : ''}
+                        </div>
+                    `;
+                    }).join('')}
+                </div>
+            `;
+
+            function getStatusClass(status) {
+                switch (status) {
+                    case 'Pending IT Verification': return 'status-pending-it';
+                    case 'Verified by IT – Awaiting Manager Approval': return 'status-verified-it';
+                    case 'Approved by Manager – Ready for Fixing': return 'status-approved-manager';
+                    case 'Completed': return 'status-completed';
+                    case 'Declined': return 'status-declined';
+                    case 'Pending CR Verification': return 'status-pending-it'; // Reusing for now
+                    case 'CR Verified - Awaiting Manager Approval': return 'status-verified-it'; // Reusing for now
+                    case 'CR Approved - Ready for Booking': return 'status-approved-manager'; // Reusing for now
+                    case 'CR Booked': return 'status-completed'; // Reusing for now
+                    case 'CR Declined': return 'status-declined'; // Reusing for now
+                    case 'Pending Manager Approval': return 'status-leave-pending-manager'; // NEW
+                    case 'Approved by Manager': return 'status-leave-approved-manager'; // NEW
+                    // case 'Declined' is already handled for IT/CR, will also apply to Leave
+                    default: return '';
+                }
+            }
+
+            openModal('confirmationModal', `Timeline for Requisition #${displayId}`, '', () => {}, true, 'Close'); // Use display_id
+            modalMessage.innerHTML = timelineHtml;
+        }
+
+        function generateReport(id) {
+            console.log("Generating report for ID:", id);
+            const req = requisitions.find(r => r.id === id);
+            if (!req || (req.status !== 'Completed' && req.status !== 'Declined' && req.status !== 'CR Booked' && req.status !== 'CR Declined' && req.status !== 'Approved by Manager')) { // Added 'Approved by Manager' for Leave
+                showNotification('Report can only be generated for completed or declined requisitions.', 'error');
+                return;
+            }
+            const displayId = req.display_id || req.id.substring(0, 5); // Use display_id for filename and content
+
+
+            const reportContent = document.createElement('div');
+            // Adjusted padding from p-6 to p-4 for more compact layout
+            reportContent.className = 'p-4 bg-white rounded-lg shadow-md';
+            reportContent.style.width = '210mm';
+            reportContent.style.minHeight = '297mm'; // Keep minHeight for A4 aspect ratio
+
+            let timelineDetailsHtml = req.changelog.map(entry => {
+                const entryDate = new Date(entry.timestamp);
+                const formattedTimestamp = `${entryDate.toLocaleDateString('en-GB')} ${entryDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })}`;
+                return `
+                <div class="mb-1 border-l-2 pl-3 ${getStatusClass(entry.status).includes('completed') || getStatusClass(entry.status).includes('booked') || getStatusClass(entry.status).includes('approved') ? 'border-green-500' : getStatusClass(entry.status).includes('declined') ? 'border-red-500' : 'border-gray-400'}">
+                    <p class="text-sm text-gray-600">${formattedTimestamp}</p>
+                    <p class="font-semibold text-gray-800">${entry.status}</p>
+                    <p class="text-xs text-gray-500">Action by: ${entry.actor}</p>
+                    ${entry.notes ? `<p class="text-xs text-gray-500 italic">Notes: ${entry.notes}</p>` : ''}
+                </div>
+            `;
+            }).join('');
+
+            let specificDetailsHtml = '';
+            if (req.requisitionType === 'IT') {
+                specificDetailsHtml = `
+                    <p><strong>Issue Type:</strong> ${req.issueType || 'N/A'}</p>
+                    <p><strong>Problem Description:</strong> ${req.problemDescription || 'N/A'}</p>
+                `;
+            } else if (req.requisitionType === 'Conference Room') {
+                specificDetailsHtml = `
+                    <p><strong>Meeting Date:</strong> ${formatDateForDisplay(req.meetingDate || 'N/A')}</p>
+                    <p><strong>Meeting Time:</strong> ${formatTimeForDisplay(req.meetingTime || 'N/A')}</p>
+                    <p><strong>Meeting Description:</strong> ${req.meetingDescription || 'N/A'}</p>
+                    <p><strong>Number of Participants:</strong> ${req.numParticipants || 'N/A'}</p>
+                `;
+            } else if (req.requisitionType === 'Leave') { // NEW: Leave Report Details
+                specificDetailsHtml = `
+                    <p><strong>Leave Type:</strong> ${req.leaveType || 'N/A'}</p>
+                    <p><strong>Start Date:</strong> ${formatDateForDisplay(req.startDate || 'N/A')}</p>
+                    <p><strong>End Date:</strong> ${formatDateForDisplay(req.endDate || 'N/A')}</p>
+                    <p><strong>Reason:</strong> ${req.reason || 'N/A'}</p>
+                    <p><strong>Manager Approval:</strong> ${req.managerApprovalStatus || 'N/A'}</p>
+                `;
+            }
+
+            reportContent.innerHTML = `
+                <h1 class="text-3xl font-bold text-primaryAccent mb-4">PES Requisition Report</h1>
+                <p class="text-sm text-gray-500 mb-4">Generated on: ${new Date().toLocaleString()}</p>
+
+                <div class="mb-4">
+                    <h2 class="text-xl font-semibold text-gray-700 mb-2">Requisition Details</h2>
+                    <p><strong>Requisition ID:</strong> ${displayId}</p>
+                    <p><strong>Requisition Type:</strong> ${req.requisitionType}</p>
+                    <p><strong>Status:</strong> <span class="status-text ${getStatusClass(req.status)}">${req.status}</span></p>
+                </div>
+
+                <div class="mb-4">
+                    <h2 class="text-xl font-semibold text-gray-700 mb-2">User Information</h2>
+                    <p><strong>Name:</strong> ${req.userName}</p>
+                    <p><strong>Designation:</strong> ${req.userDesignation}</p>
+                    ${req.userPhone ? `<p><strong>Phone Extension:</strong> ${req.userPhone}</p>` : ''}
+                </div>
+
+                <div class="mb-4">
+                    <h2 class="text-xl font-semibold text-gray-700 mb-2">Request Details</h2>
+                    ${specificDetailsHtml}
+                </div>
+
+                <div class="mb-4">
+                    <h2 class="text-xl font-semibold text-gray-700 mb-2">Timeline & Actions</h2>
+                    ${timelineDetailsHtml}
+                </div>
+
+                <div class="mt-8 text-center text-gray-500 text-sm">
+                    <p>&copy; ${new Date().getFullYear()} PES Requisition System. All rights reserved.</p>
+                </div>
+            `;
+
+            function getStatusClass(status) {
+                switch (status) {
+                    case 'Pending IT Verification': return 'status-pending-it';
+                    case 'Verified by IT – Awaiting Manager Approval': return 'status-verified-it';
+                    case 'Approved by Manager – Ready for Fixing': return 'status-approved-manager';
+                    case 'Completed': return 'status-completed';
+                    case 'Declined': return 'status-declined';
+                    case 'Pending CR Verification': return 'status-pending-it';
+                    case 'CR Verified - Awaiting Manager Approval': return 'status-verified-it';
+                    case 'CR Approved - Ready for Booking': return 'status-approved-manager';
+                    case 'CR Booked': return 'status-completed';
+                    case 'CR Declined': return 'status-declined';
+                    case 'Pending Manager Approval': return 'status-leave-pending-manager'; // NEW
+                    case 'Approved by Manager': return 'status-leave-approved-manager'; // NEW
+                    default: return '';
+                }
+            }
+
+            const options = {
+                margin: 10,
+                filename: `PES_Requisition_Report_${displayId}.pdf`, // Use display_id in filename
+                image: { type: 'jpeg', quality: 0.98 },
+                html2canvas: { scale: 2 },
+                jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+            };
+
+            html2pdf().from(reportContent).set(options).save();
+            showNotification('Report generated and downloaded successfully!');
+        }
+
+        function showPasswordModal(portalName, correctPassword, authKey, targetPortalId) {
+            console.log("Attempting to show password modal for:", portalName);
+            passwordModalTitle.textContent = `Enter Password for ${portalName}`;
+            passwordInput.value = '';
+            passwordError.classList.add('hidden');
+            passwordModal.style.display = 'flex';
+
+            passwordSubmitBtn.dataset.targetPortalId = targetPortalId;
+            passwordSubmitBtn.dataset.correctPassword = correctPassword;
+            passwordSubmitBtn.dataset.authKey = authKey;
+
+            setTimeout(() => {
+                passwordInput.focus();
+                console.log("Password input focused.");
+            }, 100);
+        }
+
+        /**
+         * Controls tab/section switching functionality.
+         * Hides all content sections and shows the selected one.
+         * Updates active state of header portal buttons and landing page buttons.
+         * Includes password protection for IT and Manager portals.
+         * @param {string} targetSectionId - The ID of the section to show ('landingPage', 'userPortal', 'conferenceRoomPortal', 'leaveRequestPortal', 'itPortal', 'managerPortal').
+         */
+        function showTab(targetSectionId) {
+            console.log("showTab called for:", targetSectionId);
+
+            // Hide all content sections
+            document.querySelectorAll('.tab-content').forEach(section => {
+                section.classList.add('hidden');
+            });
+
+            // Deactivate all header portal buttons
+            document.querySelectorAll('header .tab-button').forEach(button => {
+                button.classList.remove('active', 'bg-white', 'text-primaryAccent');
+                button.classList.add('bg-transparent', 'text-white'); // Ensure default header button style
+            });
+
+            // Deactivate all landing page buttons (if any are active)
+            document.querySelectorAll('.landing-button').forEach(button => {
+                button.classList.remove('active'); // Remove 'active' if it was somehow added
+                // Reset to default landing button style (which includes the gradient for IT Requisition)
+                button.style.backgroundImage = `linear-gradient(135deg, ${tailwind.config.theme.extend.colors.primaryAccent} 0%, ${tailwind.config.theme.extend.colors.primaryAccent} 100%)`;
+                button.classList.add('bg-primaryAccent', 'text-white'); // Ensure base classes are present
+            });
+
+
+            // Password protection logic for IT and Manager portals
+            if (targetSectionId === 'itPortal') {
+                if (sessionStorage.getItem(IT_AUTH_KEY) !== 'true') {
+                    showPasswordModal('IT Portal', IT_PASSWORD, IT_AUTH_KEY, targetSectionId);
+                    return;
+                }
+            } else if (targetSectionId === 'managerPortal') {
+                if (sessionStorage.getItem(MANAGER_AUTH_KEY) !== 'true') {
+                    showPasswordModal('Manager Portal', MANAGER_PASSWORD, MANAGER_AUTH_KEY, targetSectionId);
+                    return;
+                    }
+            }
+
+            // Show the target section
+            document.getElementById(targetSectionId).classList.remove('hidden');
+
+            // Activate the corresponding button based on the targetSectionId
+            if (targetSectionId === 'landingPage') {
+                // The Home button is always active in the header when on landing page.
+                homeButton.classList.add('active', 'bg-white', 'text-primaryAccent');
+                homeButton.classList.remove('bg-transparent');
+            } else if (targetSectionId === 'userPortal') {
+                // If navigating to userPortal (IT Requisition form), activate the landing page IT Requisition button
+                if (landingItRequisitionBtn) {
+                    landingItRequisitionBtn.classList.add('active'); // Mark as active
+                    // Explicitly set active styles for landing button
+                    landingItRequisitionBtn.style.backgroundImage = `linear-gradient(135deg, ${tailwind.config.theme.extend.colors.darkBlue} 0%, ${tailwind.config.theme.extend.colors.primaryAccent} 100%)`;
+                    landingItRequisitionBtn.classList.remove('bg-gray-100', 'text-gray-800', 'border', 'border-gray-200', 'opacity-50');
+                    landingItRequisitionBtn.classList.add('bg-primaryAccent', 'text-white'); // Ensure base classes are present
+                }
+            } else if (targetSectionId === 'conferenceRoomPortal') {
+                if (landingConferenceRoomBtn) {
+                    landingConferenceRoomBtn.classList.add('active');
+                    landingConferenceRoomBtn.style.backgroundImage = `linear-gradient(135deg, ${tailwind.config.theme.extend.colors.darkBlue} 0%, ${tailwind.config.theme.extend.colors.primaryAccent} 100%)`;
+                    landingConferenceRoomBtn.classList.remove('bg-gray-100', 'text-gray-800', 'border', 'border-gray-200', 'opacity-50');
+                    landingConferenceRoomBtn.classList.add('bg-primaryAccent', 'text-white');
+                }
+            } else if (targetSectionId === 'leaveRequestPortal') { // NEW: Activate Leave Request button
+                if (landingLeaveRequestBtn) {
+                    landingLeaveRequestBtn.classList.add('active');
+                    landingLeaveRequestBtn.style.backgroundImage = `linear-gradient(135deg, ${tailwind.config.theme.extend.colors.darkBlue} 0%, ${tailwind.config.theme.extend.colors.primaryAccent} 100%)`;
+                    landingLeaveRequestBtn.classList.remove('bg-gray-100', 'text-gray-800', 'border', 'border-gray-200', 'opacity-50');
+                    landingLeaveRequestBtn.classList.add('bg-primaryAccent', 'text-white');
+                }
+            } else if (targetSectionId === 'itPortal') {
+                itPortalTabBtn.classList.add('active', 'bg-white', 'text-primaryAccent'); // Active style for header portal buttons
+                itPortalTabBtn.classList.remove('bg-transparent');
+            } else if (targetSectionId === 'managerPortal') {
+                managerPortalTabBtn.classList.add('active', 'bg-white', 'text-primaryAccent'); // Active style for header portal buttons
+                managerPortalTabBtn.classList.remove('bg-transparent');
+            }
+            // Deactivate Home button if not on landing page
+            if (targetSectionId !== 'landingPage' && homeButton) {
+                homeButton.classList.remove('active', 'bg-white', 'text-primaryAccent');
+                homeButton.classList.add('bg-transparent', 'text-white');
+            }
+
+
+            // Only render requests if not on the landing page or a submission form
+            if (targetSectionId === 'itPortal' || targetSectionId === 'managerPortal') {
+                renderRequests();
+            }
+        }
+
+        // --- Event Listeners ---
+        // Header Portal Buttons
+        itPortalTabBtn.addEventListener('click', () => showTab('itPortal'));
+        managerPortalTabBtn.addEventListener('click', () => showTab('managerPortal'));
+
+        // NEW: Home Button
+        if (homeButton) {
+            homeButton.addEventListener('click', () => showTab('landingPage'));
+        }
+
+        // Landing Page Buttons
+        if (landingItRequisitionBtn) {
+            landingItRequisitionBtn.addEventListener('click', () => showTab('userPortal'));
+        }
+        if (landingConferenceRoomBtn) {
+            landingConferenceRoomBtn.addEventListener('click', () => showTab('conferenceRoomPortal'));
+        }
+        if (landingLeaveRequestBtn) { // NEW
+            landingLeaveRequestBtn.addEventListener('click', () => showTab('leaveRequestPortal'));
+        }
+
+
+        // Password modal submit
+        passwordSubmitBtn.addEventListener('click', () => {
+            console.log("Password submit button clicked.");
+            const enteredPassword = passwordInput.value;
+            const correctPassword = passwordSubmitBtn.dataset.correctPassword;
+            const authKey = passwordSubmitBtn.dataset.authKey;
+            const targetPortalId = passwordSubmitBtn.dataset.targetPortalId;
+
+            if (enteredPassword === correctPassword) {
+                sessionStorage.setItem(authKey, 'true');
+                closeModal('passwordModal');
+                showTab(targetPortalId);
+                showNotification(`Access granted to ${passwordModalTitle.textContent.replace('Enter Password for ', '')}.`);
+            } else {
+                passwordError.classList.remove('hidden');
+                passwordInput.value = '';
+                console.log("Incorrect password entered.");
+            }
+        });
+
+        // Allow pressing Enter key in password input to submit
+        passwordInput.addEventListener('keypress', function(event) {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                console.log("Enter key pressed in password input.");
+                passwordSubmitBtn.click();
+            }
+        });
+
+        // Add event listeners for search and filter inputs
+        if (itHistorySearch) itHistorySearch.oninput = renderRequests;
+        if (itHistoryFilter) itHistoryFilter.onchange = renderRequests;
+
+        // NEW: Manager Leave History Search/Filter
+        if (managerLeaveHistorySearch) managerLeaveHistorySearch.oninput = renderRequests;
+        if (managerLeaveHistoryFilter) managerLeaveHistoryFilter.onchange = renderRequests;
+
+        // NEW: Manager IT/CR History Search/Filter
+        if (managerITCRHistorySearch) managerITCRHistorySearch.oninput = renderRequests;
+        if (managerITCRHistoryFilter) managerITCRHistoryFilter.onchange = renderRequests;
+
+
+        // Event listeners for "Show Full History" buttons
+        if (showFullItHistoryBtn) {
+            showFullItHistoryBtn.addEventListener('click', () => {
+                fullHistoryModalTitle.textContent = 'Full IT Portal History';
+                renderFullHistory('it', itHistorySearch.value, itHistoryFilter.value); // Pass current search/filter
+                fullHistoryModal.style.display = 'flex';
+            });
+        }
+        // NEW: Manager Full Leave History Button
+        if (showFullManagerLeaveHistoryBtn) {
+            showFullManagerLeaveHistoryBtn.addEventListener('click', () => {
+                fullHistoryModalTitle.textContent = 'Full Manager Leave History';
+                renderFullHistory('manager', managerLeaveHistorySearch.value, managerLeaveHistoryFilter.value, 'Leave');
+                fullHistoryModal.style.display = 'flex';
+            });
+        }
+        // NEW: Manager Full IT/CR History Button
+        if (showFullManagerITCRHistoryBtn) {
+            showFullManagerITCRHistoryBtn.addEventListener('click', () => {
+                fullHistoryModalTitle.textContent = 'Full Manager IT & CR History';
+                renderFullHistory('manager', managerITCRHistorySearch.value, managerITCRHistoryFilter.value, 'ITCR');
+                fullHistoryModal.style.display = 'flex';
+            });
+        }
+
+
+        // Event listener for search input in full history modal
+        if (fullHistorySearchInput) {
+            fullHistorySearchInput.addEventListener('input', () => {
+                const currentModalTitle = fullHistoryModalTitle.textContent;
+                let portalType = 'it';
+                let specificHistoryType = 'All'; // Default for IT portal, or general for manager
+                let filterType = 'All'; // Default filter type
+
+                if (currentModalTitle.includes('IT Portal')) {
+                    portalType = 'it';
+                    filterType = itHistoryFilter.value; // Use the filter from the IT portal
+                } else if (currentModalTitle.includes('Manager Leave')) {
+                    portalType = 'manager';
+                    specificHistoryType = 'Leave';
+                    filterType = managerLeaveHistoryFilter.value; // Use the filter from the Manager Leave history
+                } else if (currentModalTitle.includes('Manager IT & CR')) {
+                    portalType = 'manager';
+                    specificHistoryType = 'ITCR';
+                    filterType = managerITCRHistoryFilter.value; // Use the filter from the Manager IT/CR history
+                }
+                renderFullHistory(portalType, fullHistorySearchInput.value, filterType, specificHistoryType);
+            });
+        }
+
+
+        // --- Initial Load ---
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log("DOMContentLoaded fired. Initializing app.");
+            showTab('landingPage'); // Display the new landing page by default
+        });
+    </script>
+</body>
+</html>

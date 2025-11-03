@@ -1,0 +1,12 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Database
+# NEVER commit your database file to GitHub!
+backend/data/requisitions.db
+
+# Windows
+Start Requisition Server.bat

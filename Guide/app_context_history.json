@@ -1,0 +1,223 @@
+{
+  "project_name": "IT Requisition System",
+  "owner": "Talal",
+  "theme": {
+    "primary_color": "#007AFF",
+    "background_color": "#FFFFFF",
+    "text_color": "#333333"
+  },
+  "hosting": {
+    "type": "Self-hosted",
+    "platform": "Desktop PC (QNAP NAS compatible)",
+    "web_server_path": "/Web/it-requisition",
+    "deployment_method": "Local Python Servers via Batch Script",
+    "startup_instructions": [
+      "Ensure Python 3.x is installed.",
+      "Firewall ports 5000 (backend) and 8000 (frontend) must be open for TCP inbound connections.",
+      "Run 'start_it_app.bat' located in the main app directory.",
+      "Access via browser at: http://YOUR_PC_LOCAL_IP:8000/index.html"
+    ],
+    "deployment_guide_file": "DEPLOYMENT_GUIDE.md"
+  },
+  "frontend": {
+    "technology": "Vanilla HTML/CSS/JavaScript",
+    "styling_framework": "Tailwind CSS (CDN)",
+    "pdf_generation_library": "html2pdf.js (CDN)",
+    "font": "Inter (Google Fonts CDN)",
+    "ui_elements_and_features": {
+      "header": {
+        "background": "primaryAccent (#007AFF)",
+        "elements": [
+          "System Title (centered)",
+          "Home Button (top-left)",
+          "IT Portal Button (password protected)",
+          "Manager Portal Button (password protected)"
+        ]
+      },
+      "landing_page": {
+        "buttons": [
+          "IT Requisition (directs to submission form)",
+          "Conference Room (directs to submission form)",
+          "Leave Request (directs to submission form)"
+        ]
+      },
+      "forms": {
+        "it_requisition": ["Name", "Designation", "Phone Extension", "Issue Type", "Problem Description"],
+        "conference_room": ["Name", "Designation", "Meeting Date", "Meeting Time", "Meeting Description", "Number of Participants"],
+        "leave_request": ["Name", "Designation", "Leave Type", "Start Date", "End Date", "Reason"]
+      },
+      "portals": {
+        "it_portal": {
+          "sections": [
+            "Pending & In-Progress Requests (IT and Conference Room types)",
+            "Recent History (IT and Conference Room types, searchable & filterable)",
+            "Full History Modal (searchable & filterable)"
+          ],
+          "actions": [
+            "Verify & Forward (for pending IT/CR)",
+            "Mark as Fixed (for approved IT)",
+            "Mark as Booked (for approved CR)",
+            "Decline Request (for IT/CR)",
+            "View Timeline",
+            "Download Report",
+            "Delete From History"
+          ]
+        },
+        "manager_portal": {
+          "sections": [
+            "Pending Leave Requests",
+            "Recent Leave History (searchable & filterable)",
+            "Pending IT & CR Requests",
+            "Recent IT & CR History (searchable & filterable)",
+            "Full History Modal (searchable & filterable for both Leave and IT/CR)"
+          ],
+          "actions": [
+            "Approve Leave",
+            "Decline Leave",
+            "Approve (for IT/CR)",
+            "Decline Request (for IT/CR)",
+            "View Timeline",
+            "Download Report",
+            "Delete From History"
+          ]
+        }
+      },
+      "modals": {
+        "confirmation_dialogs": "Yes/No prompts for actions (e.g., delete, status change)",
+        "password_protection": "For IT and Manager portals (now redirects to home on dismiss if unauthenticated)",
+        "full_history": "Displays all historical requisitions with search/filter"
+      },
+      "notifications": "In-app alerts for successful submissions, updates, errors",
+      "status_badges": "Color-coded for different requisition statuses",
+      "responsive_design": "Tailwind CSS for mobile-first responsiveness",
+      "pdf_reports": "Downloadable PDF reports for completed/declined requisitions"
+    }
+  },
+  "backend": {
+    "technology": "Python Flask",
+    "database": "SQLite (requisitions.db)",
+    "api_endpoints": [
+      "GET /api/requisitions (fetch all)",
+      "POST /api/requisitions (create new)",
+      "PUT /api/requisitions/<id> (update existing)",
+      "DELETE /api/requisitions/<id> (delete)"
+    ],
+    "data_model": {
+      "requisition": {
+        "id": "Unique ID (generated on frontend)",
+        "display_id": "String (e.g., 'RQ001', generated on backend for display)",
+        "requisitionType": "String (e.g., 'IT', 'Conference Room', 'Leave')",
+        "userName": "String",
+        "userDesignation": "String",
+        "userPhone": "String (optional, for IT)",
+        "issueType": "String (optional, for IT)",
+        "problemDescription": "String (optional, for IT)",
+        "meetingDate": "String (optional, for CR)",
+        "meetingTime": "String (optional, for CR)",
+        "meetingDescription": "String (optional, for CR)",
+        "numParticipants": "Integer (optional, for CR)",
+        "leaveType": "String (optional, for Leave)",
+        "startDate": "String (optional, for Leave)",
+        "endDate": "String (optional, for Leave)",
+        "reason": "String (optional, for Leave)",
+        "status": "String (e.g., 'Pending IT Verification', 'Approved by Manager', 'Completed', 'Declined', 'CR Booked')",
+        "managerApprovalStatus": "String (specific for Leave, e.g., 'Pending Manager Approval', 'Approved by Manager', 'Declined by Manager')",
+        "changelog": [
+          {
+            "timestamp": "String (ISO format)",
+            "status": "String",
+            "actor": "String (e.g., 'User', 'IT', 'Manager')",
+            "notes": "String (optional)"
+          }
+        ]
+      }
+    }
+  },
+  "versions": [
+    {
+      "version": "1.0",
+      "date": "2025-07-15",
+      "changes": [
+        "Initial setup with basic IT requisition submission.",
+        "IT Portal for verification and completion.",
+        "Manager Portal for approval.",
+        "PDF report generation for completed/declined requisitions.",
+        "Password protection for IT and Manager portals.",
+        "Frontend: Vanilla HTML/CSS/JS with Tailwind CSS.",
+        "Backend: Python Flask with flat JSON file storage (requisitions.json)."
+      ]
+    },
+    {
+      "version": "1.1",
+      "date": "2025-07-15",
+      "changes": [
+        "Introduced Conference Room Requisition type.",
+        "Updated UI to include Conference Room submission form and integrate into IT/Manager portals.",
+        "Implemented specific statuses and workflows for Conference Room requisitions.",
+        "Added in-app notification system for user feedback.",
+        "Enhanced modal design with blurred backdrop blur effect for modals.",
+        "Refined modal event handling for improved reliability.",
+        "Added extensive console debug logs for easier troubleshooting."
+      ]
+    },
+    {
+      "version": "1.2",
+      "date": "2025-07-16",
+      "changes": [
+        "Migrated backend data storage from flat JSON file (requisitions.json) to SQLite database (requisitions.db).",
+        "Implemented database schema for requisitions and changelogs tables.",
+        "Updated backend API (app.py) to perform all CRUD operations (Create, Read, Update, Delete) directly with SQLite.",
+        "Removed legacy JSON data migration logic (starts with a fresh database).",
+        "Created DEPLOYMENT_GUIDE.md for clear, step-by-step instructions on deploying the application to a new server."
+      ]
+    },
+    {
+      "version": "1.3",
+      "date": "2025-07-16",
+      "changes": [
+        "Refined DEPLOYMENT_GUIDE.md for enhanced readability and clarity, presented in a document-like format."
+      ]
+    },
+    {
+      "version": "1.4",
+      "date": "2025-07-18",
+      "changes": [
+        "Added Leave Request submission portal with dedicated form.",
+        "Integrated Leave Request handling into the Manager Portal (pending and history sections).",
+        "Implemented specific status and approval workflow for Leave Requests.",
+        "Corrected ReferenceError for `noItHistory` in `renderRequests` function, ensuring proper display of IT Portal history.",
+        "Ensured Manager Portal history sections (Leave and IT/CR) correctly filter and display historical requisitions.",
+        "Updated `renderRequests` and `renderRequisitionCard` functions to properly support and display all three requisition types (IT, Conference Room, Leave) across portals.",
+        "Enhanced PDF report generation to include specific details for Leave Requests."
+      ]
+    },
+    {
+      "version": "1.5",
+      "date": "2025-07-18",
+      "changes": [
+        "Implemented sequential requisition numbering (e.g., 'RQ001', 'RQ002') for display purposes.",
+        "Backend (`app.py`): Added `display_id` column to `requisitions` table and a `counters` table to manage sequential numbers. Modified `add_requisition` to generate and store `display_id`.",
+        "Frontend (`index.html`): Updated all display logic to use `req.display_id` where applicable (cards, reports, timeline). The original `id` is still used for internal operations.",
+        "Adjusted PDF report generation styling to prevent blank second page by reducing internal padding/margins."
+      ]
+    },
+    {
+      "version": "1.6",
+      "date": "2025-07-18",
+      "changes": [
+        "Fixed deletion notification to display sequential `display_id` instead of truncated internal `id`.",
+        "Integrated `migrate_db.py` script into `start_it_app.bat` for automatic database schema updates upon application startup. This ensures `requisitions.db` is always up-to-date without manual migration steps."
+      ]
+    },
+    {
+      "version": "1.7",
+      "date": "2025-07-18",
+      "changes": [
+        "Moved 'PES Requisition System' title to the center of the header for better visual balance.",
+        "Added a dedicated 'Home' button to the top-left of the header, providing a clear navigation back to the landing page.",
+        "Implemented logic to redirect to the landing page if the password modal is dismissed (e.g., by clicking outside or 'x' button) without successful authentication, preventing a blank screen."
+      ]
+    }
+  ],
+  "notes_for_ai_replication": "When replicating, pay close attention to the specific Tailwind CSS classes, custom CSS for animations/blur, and the exact placement and event handlers for buttons (especially modals and delete functionality) as detailed in 'ui_elements_and_features' and 'modules' sections. Ensure the API_BASE_URL in frontend code matches the backend server's IP. The data persistence is now handled by SQLite, so ensure the `data` directory and `requisitions.db` are properly managed on the server. The `index.html` now includes comprehensive handling for three requisition types: IT, Conference Room, and Leave, with distinct rendering and action logic for each. The Manager Portal is split into Leave and IT/CR sections for clarity. Sequential display IDs are now generated by the backend and used for all user-facing requisition numbers. The `start_it_app.bat` now automatically runs the migration script. The header layout has been adjusted for centering the title and adding a home button, and password modal dismissal logic is improved."
+}
